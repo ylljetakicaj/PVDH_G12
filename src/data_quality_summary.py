@@ -1,6 +1,6 @@
 import pandas as pd
 
-df = pd.read_csv("unprocessed dataset/listings.csv")
+df = pd.read_csv("../unprocessed dataset/listings.csv")
 
 summary = pd.DataFrame({
     "Kolona": df.columns,
