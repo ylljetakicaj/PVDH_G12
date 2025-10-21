@@ -31,3 +31,42 @@ class DataIntegrator:
             self.data = pd.concat(all_data, ignore_index=True)
             print(f"Combined data: {len(self.data)} rows")
         return self.data
+
+    def aggregate_by_time(self, date_col, freq='M'):
+        if self.data is None:
+            return None
+        df = self.data.copy()
+        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+        if freq == 'M':
+            df['period'] = df[date_col].dt.to_period('M')
+        elif freq == 'Y':
+            df['period'] = df[date_col].dt.to_period('Y')
+        elif freq == 'D':
+            df['period'] = df[date_col].dt.date
+        time_agg = df.groupby('period', observed=True).size().reset_index(name='count')
+        return time_agg
+    
+    def aggregate_by_category(self, category_col):
+        if self.data is None:
+            return None
+        cat_agg = self.data.groupby(category_col, observed=True).size().reset_index(name='count')
+        return cat_agg.sort_values('count', ascending=False)
+    
+    def get_summary_stats(self):
+        if self.data is None:
+            return None
+        stats = {
+            'total_rows': len(self.data),
+            'total_columns': len(self.data.columns),
+            'files_processed': self.files_processed,
+            'missing_values': self.data.isnull().sum().sum(),
+            'duplicates': self.data.duplicated().sum()
+        }
+        return stats
+    
+    def save_data(self, output_path):
+        if self.data is not None:
+            self.data.to_csv(output_path, index=False)
+            print(f"Data saved to: {output_path}")
+            return True
+        return False
