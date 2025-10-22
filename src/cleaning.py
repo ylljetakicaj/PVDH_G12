@@ -17,3 +17,12 @@ def clean_data(df, dataset_name):
             df = df.drop_duplicates(subset=['id'])
             print(f"Removed {initial_rows - len(df)} duplicate IDs in reviews")
     return df
+
+def identify_missing(df):
+    """Identify missing values in the dataset."""
+    missing = df.isnull().sum().to_dict()
+    print("Missing values per column:")
+    for col, count in missing.items():
+        if count > 0:
+            print(f"  {col}: {count}")
+    return missing
