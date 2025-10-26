@@ -185,6 +185,134 @@ class AdvancedPreprocessor:
             print(f"Univariate selection failed: {e}")
             return df
     
+    def _apply_mutual_info_selection(self, df, feature_cols, target_col, k):
+        """Select features using mutual information."""
+        numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
+        
+        if len(numeric_cols) == 0 or target_col not in df.columns:
+            print("No numeric features or target column not found")
+            return df
+            
+        X = df[numeric_cols]
+        y = df[target_col]
+        
+        # Remove rows where target is NaN
+        mask = ~y.isna()
+        X = X[mask]
+        y = y[mask]
+        
+        if len(X) == 0:
+            print("No valid samples after removing NaN targets")
+            return df
+            
+        k_best = min(int(k), len(numeric_cols)) if isinstance(k, (int, float)) else len(numeric_cols)
+        selector = SelectKBest(score_func=mutual_info_regression, k=k_best)
+        
+        try:
+            X_selected = selector.fit_transform(X, y)
+            selected_features = [col for col, selected in zip(numeric_cols, selector.get_support()) if selected]
+            
+            # Keep selected features and all non-numeric features
+            non_numeric_cols = [col for col in df.columns if col not in numeric_cols]
+            result_df = df[non_numeric_cols + selected_features].copy()
+            
+            self.feature_selectors['mutual_info'] = selector
+            
+            print(f"Mutual info selection kept {len(selected_features)} best features")
+            print(f"Selected features: {selected_features}")
+            
+            return result_df
+        except Exception as e:
+            print(f"Mutual info selection failed: {e}")
+            return df
+
+    def select_property_subsets(self, df, subset_type='high_value', custom_conditions=None):
+        """
+        Select subsets of properties based on various criteria.
+        
+        Args:
+            df: DataFrame to filter
+            subset_type: 'high_value', 'popular', 'superhosts', 'recent', 'custom'
+            custom_conditions: Dict of column:condition pairs for custom filtering
+            
+        Why this approach:
+        - High value: Focus on premium properties for luxury market analysis
+        - Popular: Properties with many reviews for understanding guest preferences
+        - Superhosts: Quality properties for benchmarking standards
+        - Recent: New properties for trend analysis
+        - Custom: Flexible filtering for specific research questions
+        """
+        print(f"\n=== PROPERTY SUBSET SELECTION: {subset_type.upper()} ===")
+        
+        original_count = len(df)
+        
+        if subset_type == 'high_value':
+            # Properties in top 25% of price range
+            if 'price' in df.columns:
+                price_threshold = df['price'].quantile(0.75)
+                subset_df = df[df['price'] >= price_threshold].copy()
+                print(f"High-value properties: price >= ${price_threshold:.2f}")
+            else:
+                print("Price column not found, returning original dataset")
+                return df
+                
+        elif subset_type == 'popular':
+            # Properties with above-average number of reviews
+            if 'number_of_reviews' in df.columns:
+                review_threshold = df['number_of_reviews'].median()
+                subset_df = df[df['number_of_reviews'] >= review_threshold].copy()
+                print(f"Popular properties: reviews >= {review_threshold}")
+            else:
+                print("Number of reviews column not found, returning original dataset")
+                return df
+                
+        elif subset_type == 'superhosts':
+            # Properties hosted by superhosts
+            if 'host_is_superhost' in df.columns:
+                subset_df = df[df['host_is_superhost'] == True].copy()
+                print("Superhost properties selected")
+            else:
+                print("Superhost column not found, returning original dataset")
+                return df
+                
+        elif subset_type == 'recent':
+            # Properties with recent reviews (last 2 years)
+            if 'last_review' in df.columns:
+                df['last_review'] = pd.to_datetime(df['last_review'], errors='coerce')
+                cutoff_date = pd.Timestamp.now() - pd.DateOffset(years=2)
+                subset_df = df[df['last_review'] >= cutoff_date].copy()
+                print(f"Recent properties: last review >= {cutoff_date.date()}")
+            else:
+                print("Last review column not found, returning original dataset")
+                return df
+                
+        elif subset_type == 'custom' and custom_conditions:
+            # Apply custom filtering conditions
+            subset_df = df.copy()
+            for column, condition in custom_conditions.items():
+                if column in df.columns:
+                    if isinstance(condition, dict):
+                        # Handle range conditions
+                        if 'min' in condition:
+                            subset_df = subset_df[subset_df[column] >= condition['min']]
+                        if 'max' in condition:
+                            subset_df = subset_df[subset_df[column] <= condition['max']]
+                        if 'values' in condition:
+                            subset_df = subset_df[subset_df[column].isin(condition['values'])]
+                    else:
+                        # Handle simple equality condition
+                        subset_df = subset_df[subset_df[column] == condition]
+                    print(f"Applied condition on {column}: {condition}")
+                else:
+                    print(f"Column {column} not found, skipping condition")
+        else:
+            print("Invalid subset type or missing custom conditions")
+            return df
+            
+        final_count = len(subset_df)
+        print(f"Subset selection: {original_count} -> {final_count} properties ({final_count/original_count*100:.1f}%)")
+        
+        return subset_df
         """Generate a summary of all preprocessing steps applied."""
         print(f"\n=== PREPROCESSING SUMMARY ===")
         print(f"Original dataset: {original_df.shape[0]} rows, {original_df.shape[1]} columns")
