@@ -77,3 +77,73 @@ class AdvancedPreprocessor:
             print(f"Method '{method}' not supported or target column missing for supervised methods")
             return result_df
     
+    def _apply_pca(self, df, feature_cols, n_components):
+        """Apply PCA dimension reduction."""
+        # Only use numeric columns for PCA
+        numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
+        
+        if len(numeric_cols) < 2:
+            print("Need at least 2 numeric features for PCA")
+            return df
+            
+        X = df[numeric_cols].values
+        
+        # Standardize features before PCA
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        
+        # Apply PCA
+        if isinstance(n_components, float) and n_components < 1:
+            # Keep components that explain n_components variance
+            pca = PCA(n_components=n_components)
+        else:
+            # Keep specific number of components
+            pca = PCA(n_components=min(int(n_components), len(numeric_cols)))
+            
+        X_pca = pca.fit_transform(X_scaled)
+        
+        # Create new DataFrame with PCA components
+        pca_cols = [f'PC_{i+1}' for i in range(X_pca.shape[1])]
+        pca_df = pd.DataFrame(X_pca, columns=pca_cols, index=df.index)
+        
+        # Keep non-numeric columns and add PCA components
+        non_numeric_cols = [col for col in df.columns if col not in numeric_cols]
+        result_df = pd.concat([df[non_numeric_cols], pca_df], axis=1)
+        
+        # Store models for later use
+        self.scalers['pca_scaler'] = scaler
+        self.pca_models['pca'] = pca
+        
+        print(f"PCA reduced {len(numeric_cols)} features to {X_pca.shape[1]} components")
+        print(f"Explained variance ratio: {pca.explained_variance_ratio_[:5]}")  # Show first 5
+        print(f"Total explained variance: {pca.explained_variance_ratio_.sum():.3f}")
+        
+        return result_df
+    
+        """Generate a summary of all preprocessing steps applied."""
+        print(f"\n=== PREPROCESSING SUMMARY ===")
+        print(f"Original dataset: {original_df.shape[0]} rows, {original_df.shape[1]} columns")
+        print(f"Processed dataset: {processed_df.shape[0]} rows, {processed_df.shape[1]} columns")
+        print(f"Features added: {processed_df.shape[1] - original_df.shape[1]}")
+        
+        # Show new columns
+        new_cols = set(processed_df.columns) - set(original_df.columns)
+        if new_cols:
+            print(f"\nNew features created ({len(new_cols)}):")
+            for col in sorted(new_cols)[:20]:  # Show first 20
+                print(f"  - {col}")
+            if len(new_cols) > 20:
+                print(f"  ... and {len(new_cols) - 20} more")
+                
+        # Show memory usage
+        original_memory = original_df.memory_usage(deep=True).sum() / 1024**2
+        processed_memory = processed_df.memory_usage(deep=True).sum() / 1024**2
+        print(f"\nMemory usage: {original_memory:.1f} MB -> {processed_memory:.1f} MB")
+        
+        return {
+            'original_shape': original_df.shape,
+            'processed_shape': processed_df.shape,
+            'features_added': processed_df.shape[1] - original_df.shape[1],
+            'new_columns': list(new_cols),
+            'memory_change': processed_memory - original_memory
+        }
