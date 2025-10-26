@@ -313,6 +313,317 @@ class AdvancedPreprocessor:
         print(f"Subset selection: {original_count} -> {final_count} properties ({final_count/original_count*100:.1f}%)")
         
         return subset_df
+
+    def create_derived_properties(self, df):
+        """
+        Create new properties from existing features.
+        
+        Why these derived features:
+        - Price per person: Normalizes price by capacity for fair comparison
+        - Review density: Indicates how actively reviewed a property is
+        - Host experience: Captures host tenure which affects service quality
+        - Availability ratio: Shows how often property is available
+        - Amenity count: Quantifies property features
+        - Location desirability: Combines location-based metrics
+        """
+        print(f"\n=== PROPERTY CREATION ===")
+        
+        result_df = df.copy()
+        created_features = []
+        
+        # 1. Price per person
+        if 'price' in df.columns and 'accommodates' in df.columns:
+            result_df['price_per_person'] = result_df['price'] / result_df['accommodates'].replace(0, 1)
+            created_features.append('price_per_person')
+            
+        # 2. Review density (reviews per month since first review)
+        if 'number_of_reviews' in df.columns and 'first_review' in df.columns:
+            result_df['first_review'] = pd.to_datetime(result_df['first_review'], errors='coerce')
+            current_date = pd.Timestamp.now()
+            months_active = (current_date - result_df['first_review']).dt.days / 30.44
+            months_active = months_active.replace(0, 1)  # Avoid division by zero
+            result_df['review_density'] = result_df['number_of_reviews'] / months_active
+            result_df['review_density'] = result_df['review_density'].fillna(0)
+            created_features.append('review_density')
+            
+        # 3. Host experience (years since host started)
+        if 'host_since' in df.columns:
+            result_df['host_since'] = pd.to_datetime(result_df['host_since'], errors='coerce')
+            current_date = pd.Timestamp.now()
+            result_df['host_experience_years'] = (current_date - result_df['host_since']).dt.days / 365.25
+            result_df['host_experience_years'] = result_df['host_experience_years'].fillna(0)
+            created_features.append('host_experience_years')
+            
+        # 4. Availability ratio
+        if 'availability_365' in df.columns:
+            result_df['availability_ratio'] = result_df['availability_365'] / 365
+            created_features.append('availability_ratio')
+            
+        # 5. Amenity count
+        if 'amenities' in df.columns:
+            result_df['amenity_count'] = result_df['amenities'].apply(
+                lambda x: len(eval(x)) if isinstance(x, str) and x.startswith('[') else 0
+            )
+            created_features.append('amenity_count')
+            
+        # 6. Bathroom-bedroom ratio
+        if 'bathrooms' in df.columns and 'bedrooms' in df.columns:
+            result_df['bathroom_bedroom_ratio'] = result_df['bathrooms'] / result_df['bedrooms'].replace(0, 1)
+            created_features.append('bathroom_bedroom_ratio')
+            
+        # 7. Review score average
+        review_score_cols = [col for col in df.columns if col.startswith('review_scores_')]
+        if len(review_score_cols) > 0:
+            result_df['avg_review_score'] = result_df[review_score_cols].mean(axis=1)
+            created_features.append('avg_review_score')
+            
+        # 8. Location desirability score (based on review_scores_location and price)
+        if 'review_scores_location' in df.columns and 'price' in df.columns:
+            # Normalize both metrics to 0-1 scale
+            location_norm = (result_df['review_scores_location'] - result_df['review_scores_location'].min()) / \
+                           (result_df['review_scores_location'].max() - result_df['review_scores_location'].min())
+            price_norm = (result_df['price'] - result_df['price'].min()) / \
+                        (result_df['price'].max() - result_df['price'].min())
+            
+            # Combine location score (positive) with price (negative, as higher price might indicate desirability)
+            result_df['location_desirability'] = (location_norm * 0.7) + (price_norm * 0.3)
+            result_df['location_desirability'] = result_df['location_desirability'].fillna(0)
+            created_features.append('location_desirability')
+            
+        # 9. Is luxury property (based on price and amenities)
+        if 'price' in df.columns and 'amenity_count' in result_df.columns:
+            price_threshold = result_df['price'].quantile(0.8)
+            amenity_threshold = result_df['amenity_count'].quantile(0.8)
+            result_df['is_luxury'] = ((result_df['price'] >= price_threshold) & 
+                                     (result_df['amenity_count'] >= amenity_threshold)).astype(int)
+            created_features.append('is_luxury')
+            
+        print(f"Created {len(created_features)} derived features:")
+        for feature in created_features:
+            print(f"  - {feature}")
+            
+        return result_df
+        """
+        Apply discretization and binarization to continuous variables.
+        
+        Args:
+            df: DataFrame to process
+            discretization_config: Dict specifying which columns to discretize and how
+            
+        Why discretization:
+        - Reduces noise in continuous variables
+        - Makes patterns more interpretable
+        - Can improve performance of some algorithms
+        - Useful for creating categorical features from numeric ones
+        
+        Why binarization:
+        - Simplifies complex relationships
+        - Useful for creating yes/no features
+        - Can highlight important thresholds
+        """
+        print(f"\n=== DISCRETIZATION AND BINARIZATION ===")
+        
+        result_df = df.copy()
+        
+        # Default discretization configuration
+        if discretization_config is None:
+            discretization_config = {
+                'price': {'method': 'quantile', 'bins': 5, 'labels': ['Very Low', 'Low', 'Medium', 'High', 'Very High']},
+                'number_of_reviews': {'method': 'equal_width', 'bins': 4, 'labels': ['Few', 'Some', 'Many', 'Lots']},
+                'availability_365': {'method': 'equal_width', 'bins': 3, 'labels': ['Low', 'Medium', 'High']},
+                'accommodates': {'method': 'custom', 'bins': [0, 2, 4, 6, float('inf')], 'labels': ['Small', 'Medium', 'Large', 'Extra Large']}
+            }
+            
+        # Apply discretization
+        for column, config in discretization_config.items():
+            if column not in df.columns:
+                print(f"Column {column} not found, skipping discretization")
+                continue
+                
+            if df[column].dtype not in [np.number, 'float64', 'int64']:
+                print(f"Column {column} is not numeric, skipping discretization")
+                continue
+                
+            try:
+                if config['method'] == 'quantile':
+                    # Equal frequency bins
+                    result_df[f'{column}_binned'] = pd.qcut(
+                        df[column], 
+                        q=config['bins'], 
+                        labels=config.get('labels', None),
+                        duplicates='drop'
+                    )
+                elif config['method'] == 'equal_width':
+                    # Equal width bins
+                    result_df[f'{column}_binned'] = pd.cut(
+                        df[column], 
+                        bins=config['bins'], 
+                        labels=config.get('labels', None)
+                    )
+                elif config['method'] == 'custom':
+                    # Custom bin edges
+                    result_df[f'{column}_binned'] = pd.cut(
+                        df[column], 
+                        bins=config['bins'], 
+                        labels=config.get('labels', None)
+                    )
+                    
+                print(f"Discretized {column} into {config['bins']} bins using {config['method']} method")
+                
+                # Store binning information
+                self.discretization_bins[column] = config
+                
+            except Exception as e:
+                print(f"Failed to discretize {column}: {e}")
+                
+        # Apply binarization to specific features
+        binarization_config = {
+            'price': {'threshold': df['price'].median() if 'price' in df.columns else 100, 'name': 'is_expensive'},
+            'number_of_reviews': {'threshold': 10, 'name': 'has_many_reviews'},
+            'host_is_superhost': {'threshold': 0.5, 'name': 'is_superhost_binary'},
+            'instant_bookable': {'threshold': 0.5, 'name': 'is_instant_bookable_binary'}
+        }
+        
+        for column, config in binarization_config.items():
+            if column not in df.columns:
+                continue
+                
+            try:
+                if column in ['host_is_superhost', 'instant_bookable']:
+                    # Handle boolean columns
+                    result_df[config['name']] = df[column].astype(int)
+                else:
+                    # Handle numeric columns
+                    result_df[config['name']] = (df[column] >= config['threshold']).astype(int)
+                    
+                print(f"Binarized {column} with threshold {config['threshold']} -> {config['name']}")
+                
+            except Exception as e:
+                print(f"Failed to binarize {column}: {e}")
+                
+        return result_df
+
+    def apply_transformations(self, df, transformation_config=None):
+        """
+        Apply various data transformations.
+        
+        Args:
+            df: DataFrame to transform
+            transformation_config: Dict specifying transformations to apply
+            
+        Why these transformations:
+        - StandardScaler: Centers data around 0, unit variance - good for algorithms sensitive to scale
+        - MinMaxScaler: Scales to [0,1] range - preserves relationships, good for neural networks
+        - RobustScaler: Uses median/IQR - robust to outliers
+        - Log transform: Reduces skewness in right-skewed distributions
+        - Square root: Mild transformation for moderately skewed data
+        - One-hot encoding: Converts categorical to binary features for ML algorithms
+        """
+        print(f"\n=== DATA TRANSFORMATIONS ===")
+        
+        result_df = df.copy()
+        
+        # Default transformation configuration
+        if transformation_config is None:
+            transformation_config = {
+                'scaling': {
+                    'method': 'standard',  # 'standard', 'minmax', 'robust'
+                    'columns': 'numeric'   # 'numeric', 'all', or list of columns
+                },
+                'log_transform': ['price', 'number_of_reviews'],
+                'sqrt_transform': ['availability_365'],
+                'one_hot_encode': ['room_type', 'property_type', 'neighbourhood_cleansed']
+            }
+            
+        # 1. Scaling transformations
+        scaling_config = transformation_config.get('scaling', {})
+        if scaling_config:
+            method = scaling_config.get('method', 'standard')
+            columns = scaling_config.get('columns', 'numeric')
+            
+            # Select columns to scale
+            if columns == 'numeric':
+                scale_cols = result_df.select_dtypes(include=[np.number]).columns.tolist()
+            elif columns == 'all':
+                scale_cols = result_df.columns.tolist()
+            elif isinstance(columns, list):
+                scale_cols = [col for col in columns if col in result_df.columns]
+            else:
+                scale_cols = []
+                
+            # Remove non-numeric columns
+            scale_cols = [col for col in scale_cols if result_df[col].dtype in [np.number, 'float64', 'int64']]
+            
+            if scale_cols:
+                # Choose scaler
+                if method == 'standard':
+                    scaler = StandardScaler()
+                elif method == 'minmax':
+                    scaler = MinMaxScaler()
+                elif method == 'robust':
+                    scaler = RobustScaler()
+                else:
+                    print(f"Unknown scaling method: {method}")
+                    scaler = StandardScaler()
+                    
+                # Apply scaling
+                try:
+                    scaled_data = scaler.fit_transform(result_df[scale_cols])
+                    scaled_df = pd.DataFrame(scaled_data, columns=[f'{col}_scaled' for col in scale_cols], index=result_df.index)
+                    result_df = pd.concat([result_df, scaled_df], axis=1)
+                    
+                    self.scalers[f'{method}_scaler'] = scaler
+                    print(f"Applied {method} scaling to {len(scale_cols)} columns")
+                    
+                except Exception as e:
+                    print(f"Scaling failed: {e}")
+                    
+        # 2. Log transformation
+        log_cols = transformation_config.get('log_transform', [])
+        for col in log_cols:
+            if col in result_df.columns and result_df[col].dtype in [np.number, 'float64', 'int64']:
+                try:
+                    # Add small constant to handle zeros
+                    result_df[f'{col}_log'] = np.log1p(result_df[col].clip(lower=0))
+                    print(f"Applied log transformation to {col}")
+                except Exception as e:
+                    print(f"Log transformation failed for {col}: {e}")
+                    
+        # 3. Square root transformation
+        sqrt_cols = transformation_config.get('sqrt_transform', [])
+        for col in sqrt_cols:
+            if col in result_df.columns and result_df[col].dtype in [np.number, 'float64', 'int64']:
+                try:
+                    result_df[f'{col}_sqrt'] = np.sqrt(result_df[col].clip(lower=0))
+                    print(f"Applied square root transformation to {col}")
+                except Exception as e:
+                    print(f"Square root transformation failed for {col}: {e}")
+                    
+        # 4. One-hot encoding
+        onehot_cols = transformation_config.get('one_hot_encode', [])
+        for col in onehot_cols:
+            if col in result_df.columns:
+                try:
+                    # Limit categories to top N to avoid too many columns
+                    top_categories = result_df[col].value_counts().head(10).index.tolist()
+                    result_df[f'{col}_limited'] = result_df[col].apply(
+                        lambda x: x if x in top_categories else 'Other'
+                    )
+                    # Create dummy variables
+                    dummies = pd.get_dummies(result_df[f'{col}_limited'], prefix=col)
+                    result_df = pd.concat([result_df, dummies], axis=1)
+                    
+                    # Remove the temporary column
+                    result_df.drop(f'{col}_limited', axis=1, inplace=True)
+                    
+                    print(f"One-hot encoded {col} into {len(dummies.columns)} binary features")
+                    
+                except Exception as e:
+                    print(f"One-hot encoding failed for {col}: {e}")
+                    
+        return result_df
+
+    def get_preprocessing_summary(self, original_df, processed_df):
         """Generate a summary of all preprocessing steps applied."""
         print(f"\n=== PREPROCESSING SUMMARY ===")
         print(f"Original dataset: {original_df.shape[0]} rows, {original_df.shape[1]} columns")
