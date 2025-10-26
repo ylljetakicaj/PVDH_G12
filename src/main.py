@@ -6,6 +6,7 @@ from data_collection import load_datasets, define_data_types
 from data_quality import check_quality
 from integration import merge_neighbourhoods, merge_reviews, aggregate_listings, sample_data
 from cleaning import clean_data, identify_missing, handle_missing_values
+from advanced_preprocessing import AdvancedPreprocessor
 
 def main():
     try:
@@ -159,20 +160,92 @@ def main():
             print("Skipping missing value handling: listings is None")
         print(f"Missing value handling took {time.time() - start_time:.2f} seconds")
 
-        # Step 9: Save Processed Data
+    # Step 9: Advanced Preprocessing
         start_time = time.time()
-        print("\n=== STEP 9: SAVE PROCESSED DATA ===")
+        print("\n=== STEP 9: ADVANCED PREPROCESSING ===")
         if listings is not None:
+            # Initialize advanced preprocessor
+            preprocessor = AdvancedPreprocessor()
+            
+            # Store original for comparison
+            original_listings = listings.copy()
+            
+            # 9.1: Property Creation (create derived features first)
+            print("\n--- 9.1: Creating Derived Properties ---")
+            listings = preprocessor.create_derived_properties(listings)
+            
+            # 9.2: Property Subset Selection (optional - can be configured)
+            print("\n--- 9.2: Property Subset Selection ---")
+            # Example: Select high-value properties for analysis
+            listings = preprocessor.select_property_subsets(listings, subset_type='high_value')
+            
+            
+            # 9.4: Data Transformations
+            print("\n--- 9.4: Data Transformations ---")
+            listings = preprocessor.apply_transformations(listings)
+            
+            # 9.5: Dimension Reduction (apply last to work with all features)
+            print("\n--- 9.5: Dimension Reduction ---")
+            # Apply PCA to reduce dimensionality for visualization
+            listings_pca = preprocessor.dimension_reduction(
+                listings, 
+                target_col='price', 
+                method='pca', 
+                n_components=0.95,
+                feature_types='numeric'
+            )
+            
+            # Apply feature selection to identify most important features
+            listings_selected = preprocessor.dimension_reduction(
+                listings, 
+                target_col='price', 
+                method='univariate', 
+                n_components=20,
+                feature_types='numeric'
+            )
+            
+            # Generate preprocessing summary
+            summary = preprocessor.get_preprocessing_summary(original_listings, listings)
+            
+        else:
+            print("Skipping advanced preprocessing: listings is None")
+        print(f"Advanced preprocessing took {time.time() - start_time:.2f} seconds")
+
+        # Step 10: Save Processed Data
+        start_time = time.time()
+        print("\n=== STEP 10: SAVE PROCESSED DATA ===")
+        if listings is not None:
+            # Save main processed dataset
             output_path = os.path.join(processed_dir, "integrated_listings.csv")
             listings.to_csv(output_path, index=False)
-            print(f"Processed data saved to: {output_path}")
+            print(f"Main processed data saved to: {output_path}")
+            
+            # Save PCA-reduced dataset
+            if 'listings_pca' in locals():
+                pca_path = os.path.join(processed_dir, "listings_pca.csv")
+                listings_pca.to_csv(pca_path, index=False)
+                print(f"PCA-reduced data saved to: {pca_path}")
+            
+            # Save feature-selected dataset
+            if 'listings_selected' in locals():
+                selected_path = os.path.join(processed_dir, "listings_selected_features.csv")
+                listings_selected.to_csv(selected_path, index=False)
+                print(f"Feature-selected data saved to: {selected_path}")
+            
             print(f"Final dataset shape: {listings.shape}")
-            print("Final dataset columns:", list(listings.columns))
+            print("Final dataset columns:", len(listings.columns), "total columns")
+            
+            # Show sample of new features
+            new_cols = [col for col in listings.columns if col not in original_listings.columns]
+            if new_cols:
+                print(f"New features created: {len(new_cols)}")
+                print("Sample new features:", new_cols[:10])
         else:
             print("Skipping save: listings is None")
         print(f"Saving took {time.time() - start_time:.2f} seconds")
         
-        print("\n=== PREPROCESSING PIPELINE COMPLETED SUCCESSFULLY ===")
+        print("\n=== ADVANCED PREPROCESSING PIPELINE COMPLETED SUCCESSFULLY ===")
+
 
     except Exception as e:
         print("\n=== ERROR OCCURRED ===")
