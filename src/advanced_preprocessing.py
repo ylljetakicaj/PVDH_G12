@@ -120,6 +120,71 @@ class AdvancedPreprocessor:
         
         return result_df
     
+    def _apply_variance_threshold(self, df, feature_cols, threshold):
+        """Remove low-variance features."""
+        numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
+        
+        if len(numeric_cols) == 0:
+            print("No numeric features for variance threshold")
+            return df
+            
+        selector = VarianceThreshold(threshold=threshold)
+        X_selected = selector.fit_transform(df[numeric_cols])
+        
+        selected_features = [col for col, selected in zip(numeric_cols, selector.get_support()) if selected]
+        
+        # Keep selected numeric features and all non-numeric features
+        non_numeric_cols = [col for col in df.columns if col not in numeric_cols]
+        result_df = df[non_numeric_cols + selected_features].copy()
+        
+        self.feature_selectors['variance_threshold'] = selector
+        
+        print(f"Variance threshold removed {len(numeric_cols) - len(selected_features)} features")
+        print(f"Kept {len(selected_features)} features: {selected_features[:10]}...")  # Show first 10
+        
+        return result_df
+    
+    def _apply_univariate_selection(self, df, feature_cols, target_col, k):
+        """Select k best features using univariate statistical tests."""
+        numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
+        
+        if len(numeric_cols) == 0 or target_col not in df.columns:
+            print("No numeric features or target column not found")
+            return df
+            
+        X = df[numeric_cols]
+        y = df[target_col]
+        
+        # Remove rows where target is NaN
+        mask = ~y.isna()
+        X = X[mask]
+        y = y[mask]
+        
+        if len(X) == 0:
+            print("No valid samples after removing NaN targets")
+            return df
+            
+        k_best = min(int(k), len(numeric_cols)) if isinstance(k, (int, float)) else len(numeric_cols)
+        selector = SelectKBest(score_func=f_regression, k=k_best)
+        
+        try:
+            X_selected = selector.fit_transform(X, y)
+            selected_features = [col for col, selected in zip(numeric_cols, selector.get_support()) if selected]
+            
+            # Keep selected features and all non-numeric features
+            non_numeric_cols = [col for col in df.columns if col not in numeric_cols]
+            result_df = df[non_numeric_cols + selected_features].copy()
+            
+            self.feature_selectors['univariate'] = selector
+            
+            print(f"Univariate selection kept {len(selected_features)} best features")
+            print(f"Selected features: {selected_features}")
+            
+            return result_df
+        except Exception as e:
+            print(f"Univariate selection failed: {e}")
+            return df
+    
         """Generate a summary of all preprocessing steps applied."""
         print(f"\n=== PREPROCESSING SUMMARY ===")
         print(f"Original dataset: {original_df.shape[0]} rows, {original_df.shape[1]} columns")
