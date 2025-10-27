@@ -174,10 +174,18 @@ def main():
             print("\n--- 9.1: Creating Derived Properties ---")
             listings = preprocessor.create_derived_properties(listings)
             
-            # 9.2: Property Subset Selection (optional - can be configured)
-            print("\n--- 9.2: Property Subset Selection ---")
-            # Example: Select high-value properties for analysis
+            #Discretization and binarization
+            print("\n--- 9.2: Discretization and Binarization ---")
+            try:
+                listings = preprocessor.discretize_and_binarize(listings)
+                print(f"After discretization and binarization: {listings.shape}")
+            except Exception as e:
+                print(f"Discretization and binarization failed: {e}")
+
+            #Property subset selection
+            print("\n--- 9.3: Property Subset Selection ---")
             listings = preprocessor.select_property_subsets(listings, subset_type='high_value')
+            print(f"After property subset selection: {listings.shape}")
             
             
             # 9.4: Data Transformations
