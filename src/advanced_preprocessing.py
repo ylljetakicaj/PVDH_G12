@@ -403,6 +403,7 @@ class AdvancedPreprocessor:
             print(f"  - {feature}")
             
         return result_df
+    
         """
         Apply discretization and binarization to continuous variables.
         
@@ -421,15 +422,17 @@ class AdvancedPreprocessor:
         - Useful for creating yes/no features
         - Can highlight important thresholds
         """
+    def discretize_and_binarize(self, df, discretization_config=None):
         print(f"\n=== DISCRETIZATION AND BINARIZATION ===")
-        
         result_df = df.copy()
+        print(f"Input shape: {result_df.shape}")
+        print(f"Input columns: {list(result_df.columns)}")
         
         # Default discretization configuration
         if discretization_config is None:
             discretization_config = {
                 'price': {'method': 'quantile', 'bins': 5, 'labels': ['Very Low', 'Low', 'Medium', 'High', 'Very High']},
-                'number_of_reviews': {'method': 'equal_width', 'bins': 4, 'labels': ['Few', 'Some', 'Many', 'Lots']},
+                'number_of_reviews_x': {'method': 'equal_width', 'bins': 4, 'labels': ['Few', 'Some', 'Many', 'Lots']},
                 'availability_365': {'method': 'equal_width', 'bins': 3, 'labels': ['Low', 'Medium', 'High']},
                 'accommodates': {'method': 'custom', 'bins': [0, 2, 4, 6, float('inf')], 'labels': ['Small', 'Medium', 'Large', 'Extra Large']}
             }
@@ -439,14 +442,11 @@ class AdvancedPreprocessor:
             if column not in df.columns:
                 print(f"Column {column} not found, skipping discretization")
                 continue
-                
             if df[column].dtype not in [np.number, 'float64', 'int64']:
                 print(f"Column {column} is not numeric, skipping discretization")
                 continue
-                
             try:
                 if config['method'] == 'quantile':
-                    # Equal frequency bins
                     result_df[f'{column}_binned'] = pd.qcut(
                         df[column], 
                         q=config['bins'], 
@@ -454,53 +454,48 @@ class AdvancedPreprocessor:
                         duplicates='drop'
                     )
                 elif config['method'] == 'equal_width':
-                    # Equal width bins
                     result_df[f'{column}_binned'] = pd.cut(
                         df[column], 
                         bins=config['bins'], 
                         labels=config.get('labels', None)
                     )
                 elif config['method'] == 'custom':
-                    # Custom bin edges
                     result_df[f'{column}_binned'] = pd.cut(
                         df[column], 
                         bins=config['bins'], 
                         labels=config.get('labels', None)
                     )
-                    
                 print(f"Discretized {column} into {config['bins']} bins using {config['method']} method")
-                
-                # Store binning information
                 self.discretization_bins[column] = config
-                
             except Exception as e:
                 print(f"Failed to discretize {column}: {e}")
                 
-        # Apply binarization to specific features
+        # Apply binarization
         binarization_config = {
             'price': {'threshold': df['price'].median() if 'price' in df.columns else 100, 'name': 'is_expensive'},
-            'number_of_reviews': {'threshold': 10, 'name': 'has_many_reviews'},
+            'number_of_reviews_x': {'threshold': 10, 'name': 'has_many_reviews'},
             'host_is_superhost': {'threshold': 0.5, 'name': 'is_superhost_binary'},
             'instant_bookable': {'threshold': 0.5, 'name': 'is_instant_bookable_binary'}
         }
         
         for column, config in binarization_config.items():
             if column not in df.columns:
+                print(f"Column {column} not found, skipping binarization")
                 continue
-                
             try:
                 if column in ['host_is_superhost', 'instant_bookable']:
-                    # Handle boolean columns
-                    result_df[config['name']] = df[column].astype(int)
+                    print(f"Unique values in {column}: {df[column].unique()}")
+                    # Convert to string to handle category type, then map to boolean
+                    result_df[column] = df[column].astype(str).replace({'t': 'True', 'f': 'False', 'Unknown': 'False', 'nan': 'False'})
+                    result_df[config['name']] = result_df[column].map({'True': 1, 'False': 0}).astype(int)
                 else:
-                    # Handle numeric columns
                     result_df[config['name']] = (df[column] >= config['threshold']).astype(int)
-                    
                 print(f"Binarized {column} with threshold {config['threshold']} -> {config['name']}")
-                
             except Exception as e:
                 print(f"Failed to binarize {column}: {e}")
                 
+        print(f"Output shape: {result_df.shape}")
+        print(f"New columns added: {[col for col in result_df.columns if col not in df.columns]}")
         return result_df
 
     def apply_transformations(self, df, transformation_config=None):
