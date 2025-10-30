@@ -82,25 +82,4 @@ def handle_missing_values(df, dataset_name):
             print(f"Dropped {initial_rows - len(df)} rows with missing comments in reviews")
     
     return df
-    
-def detect_outliers(df, numeric_columns=None, z_thresh=3):
-    """Detect outliers using Z-score method."""
-    print("Detecting outliers...")
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=['number']).columns
 
-    outliers = {}
-    for col in numeric_columns:
-        mean = df[col].mean()
-        std = df[col].std()
-        if std == 0:
-            continue
-        z_scores = (df[col] - mean).abs() / std
-        count_outliers = (z_scores > z_thresh).sum()
-        if count_outliers > 0:
-            outliers[col] = int(count_outliers)
-            print(f"{col}: {count_outliers} outliers (>|{z_thresh}| std)")
-
-    if not outliers:
-        print("No significant outliers found.")
-    return outliers
