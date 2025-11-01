@@ -1,34 +1,39 @@
-# Projekti nga lënda "Përgatitja dhe Vizualizimi i të Dhënave"
+# Inside Airbnb Listings (Napoli)
 
-## Universiteti i Prishtinës
-<img src="https://github.com/user-attachments/assets/9002855f-3f97-4b41-a180-85d1e24ad34a" alt="University Logo" width="150" align="right"/>
-FIEK
-Inxhinieri Kompjuterike dhe Softuerike - Programi Master  
-Lënda: Përgatitja dhe Vizualizimi i të Dhënave
+## University of Prishtina
+<img src="https://github.com/user-attachments/assets/9002855f-3f97-4b41-a180-85d1e24ad34a" alt="University Logo" width="110" align="right"/>
 
-## Profesori i lëndës
-Prof. Dr. Mërgim Hoti
+**Faculty of Electrical and Computer Engineering (FIEK)**  
+**Program:** Computer and Software Engineering - Master  
+**Course:** Data Preparation and Visualization  
 
-## Anëtarët e grupit - Grupi 12
-- Ardi Berdyna  
-- Dafina Keqmezi  
-- Zana Guda  
-- Ylljetë Kicaj
+## Course Professor
+**Prof. Dr. Mërgim Hoti**
 
+## Contributors
+ Ardi Berdyna, Dafina Keqmezi, Ylljete Kicaj,  Zana Guda
 
-## Përshkrimi i projektit
+---
 
-Ky projekt ka për qëllim analizën dhe vizualizimin e të dhënave të një dataset-i real të marrë nga platforma Airbnb. Synimi është të kuptojmë më mirë strukturën e të dhënave, cilësinë e tyre, si dhe të nxjerrim përfundime nëpërmjet analizave statistikore dhe vizuale.
+## Project Overview
+This project focuses on analyzing and visualizing Airbnb listings data for Naples. The goal is to create a clean, structured, and analysis-ready dataset to facilitate insights into listing characteristics, pricing patterns, review trends, and neighborhood-level factors. By preparing and transforming the raw data, this project demonstrates the application of advanced data preprocessing and feature engineering techniques for real-world datasets.
 
+## Project Goals
+- Build a complete data preprocessing workflow from raw CSV files to analysis-ready datasets  
+- Apply feature engineering techniques to enrich the dataset and improve data quality  
+- Perform data aggregation and summary statistics for insightful visualizations  
+- Handle missing values, duplicates, and inconsistencies systematically  
+- Implement modular and reusable Python scripts for each preprocessing stage  
+- Ensure scalability for large datasets while optimizing memory usage  
+- Enable downstream analysis for pricing trends, review patterns, and neighborhood insights  
 
-## Përmbajtja e projektit
+## Dataset Description
+The dataset used in this project comes from [Inside Airbnb](https://insideairbnb.com/get-the-data/) for Naples and consists of the following files:
 
-1. **Auditimi fillestar i datasetit**  
-   - Hapja dhe eksplorimi i parë i të dhënave (forma, kolonat, kampion i dhënave).  
-   - Verifikimi i numrit të vlerave mungesë dhe shpërndarjes fillestare.
+| File | Description |
+|------|-------------|
+| `listings.csv` | Summary information and metrics for Airbnb listings in Naples. Suitable for visualizations and general analysis. |
+| `reviews.csv` | Review data linked to listing IDs, enabling time-based analytics and visualization of user reviews. |
+| `neighbourhoods.csv` | List of neighborhoods in Naples to support geographic filtering and mapping. |
 
-2. **Analiza e tipeve dhe cilësisë së të dhënave**  
-   - Verifikimi i tipeve të kolonave (`object`, `int64`, `float64`, etj.)  
-   - Përllogaritja e përqindjes së vlerave mungesë për secilën kolonë.  
-   - Numri i vlerave unike për kolonë, për të identifikuar variabla me variacione të ulëta.  
-   - Prezantimi i shembujve të vlerave për kolonat kryesore.
+The datasets contain features such as listing ID, property type, host details, pricing, review scores, availability, neighborhood, and geographic coordinates.
