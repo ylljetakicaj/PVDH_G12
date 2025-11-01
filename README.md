@@ -128,3 +128,97 @@ Provides a list of neighborhoods in Naples, useful for geographic filtering or m
 |-----------|-------------|---------|
 | `neighbourhood_group` | Optional broader grouping | empty |
 | `neighbourhood` | Name of the neighborhood | `Arenella`, `Avvocata` |
+
+---
+# Main Pipeline: Airbnb Data Preprocessing and Advanced Analysis
+
+The `main.py` script orchestrates the **entire data preprocessing, integration, cleaning, and advanced feature engineering workflow**. It uses all other modules (`data_collection`, `data_quality`, `integration`, `cleaning`, `advanced_preprocessing`) to produce a fully processed Airbnb dataset ready for analysis or modeling.
+
+---
+
+## Workflow Steps
+
+### 1. Setup Directories
+- Determines src, unprocessed, and processed dataset directories.
+- Creates the processed dataset directory if it does not exist.
+
+### 2. Data Collection
+- Loads datasets (`listings.csv`, `reviews.csv`, `neighbourhoods.csv`) using `load_datasets`.
+- Prints loaded datasets and basic row/column counts.
+- Handles missing or unexpected files gracefully.
+
+### 3. Define Data Types
+- Converts columns to proper types:
+  - IDs → strings
+  - Prices → numeric
+  - Percentages → float
+  - Dates → datetime
+  - Categories → category
+- Samples large datasets for performance (e.g., reviews).
+
+### 4. Data Quality Assessment
+- Uses `check_quality` to summarize:
+  - Missing values
+  - Duplicate rows and IDs
+  - Numeric statistics
+  - Price outliers (listings)
+- Prints quality report summary.
+
+### 5. Integration
+- Merges datasets:
+  - `merge_neighbourhoods`: Adds `neighbourhood_group` to listings
+  - `merge_reviews`: Adds review counts and average review lengths
+- Prints row/column counts after each merge.
+
+### 6. Aggregation
+- Aggregates listings by a category (e.g., `neighbourhood_cleansed`) using `aggregate_listings`.
+- Computes mean price, count, and average rating per group.
+
+### 7. Sampling
+- Samples a subset of listings for performance:
+  - Stratified sampling by neighbourhood if available
+  - Falls back to random sampling if needed
+
+### 8. Cleaning
+- Uses `clean_data` to perform:
+  - Basic cleaning
+  - Removing or correcting invalid values
+  - Column-specific adjustments
+- Prints updated shape after cleaning.
+
+### 9. Handling Missing Values
+- Identifies missing values per column (`identify_missing`).
+- Imputes or handles missing values (`handle_missing_values`).
+- Compares missing values before and after imputation.
+
+### 10. Advanced Preprocessing
+Uses the `AdvancedPreprocessor` class for:
+- **Derived Properties:** Creates new features (e.g., `price_log`, ratios, or aggregations)
+- **Discretization & Binarization:** Converts continuous features to categorical/binary
+- **Property Subset Selection:** Selects high-value or relevant subsets of data
+- **Data Transformations:** Applies scaling, normalization, or log transformations
+- **Dimension Reduction:** 
+  - PCA for numeric feature reduction
+  - Univariate feature selection for top features
+- Prints shapes and feature summaries at each step.
+
+### 11. Save Processed Data
+- Saves final processed listings to CSV.
+- Saves PCA-reduced dataset and feature-selected dataset separately.
+- Prints final dataset shape, number of columns, and sample newly created features.
+
+---
+
+## Key Notes
+- All steps are **logged with timing** to track performance.
+- Errors in any step are **handled gracefully** with informative messages.
+- Designed to handle **large datasets efficiently** using sampling when necessary.
+- Modular design allows for **easy extension** of preprocessing or feature engineering steps.
+
+---
+
+## Example Output
+- `integrated_listings.csv` – fully processed dataset
+- `listings_pca.csv` – PCA-reduced dataset
+- `listings_selected_features.csv` – top selected features
+- Summary of new features created during preprocessing is printed to console.
