@@ -222,3 +222,112 @@ Uses the `AdvancedPreprocessor` class for:
 - `listings_pca.csv` – PCA-reduced dataset
 - `listings_selected_features.csv` – top selected features
 - Summary of new features created during preprocessing is printed to console.
+  
+## Pipeline Steps and Outputs
+
+### Step 1: Data Collection
+- Loads all CSV files from the `unprocessed dataset` folder.
+- Datasets loaded:
+  - `listings.csv`: 10669 rows, 79 columns  
+  - `reviews.csv`: 413675 rows, 6 columns  
+  - `neighbourhoods.csv`: 30 rows, 2 columns  
+- **Output:** Python dictionaries with pandas DataFrames for each dataset.
+
+### Step 2: Define Data Types
+- Converts numerical, categorical, and date columns to correct types.
+- Reviews dataset sampled to 100,000 rows for performance.
+- **Output:**  
+  - Listings: (10669, 79)  
+  - Reviews: (100000, 6)  
+  - Neighbourhoods: (30, 2)
+
+### Step 3: Data Quality Assessment
+- Checks missing values, duplicates, and price outliers in listings.
+- **Output:**  
+  - Total missing values: 93125  
+  - Duplicate IDs: 0  
+  - Price outliers: 92  
+
+### Step 4: Integration
+- Merges datasets:  
+  - `listings` + `neighbourhoods` → adds `neighbourhood_group`  
+  - `listings` + `reviews` → adds `avg_review_length` and review-related columns  
+- **Output:** Integrated listings DataFrame: (10669, 81)
+
+### Step 5: Aggregation
+- Aggregates by neighbourhood: average price, review scores, and counts.
+- **Output:** Sample aggregated neighbourhood data (top 10):
+  | Neighbourhood | Avg Price | Listings Count | Avg Review Score |
+  |---------------|-----------|----------------|----------------|
+  | Arenella      | 155.81    | 190            | 4.83           |
+  | Avvocata      | 126.49    | 642            | 4.75           |
+  | Bagnoli       | 87.41     | 63             | 4.68           |
+  | Barra         | 64.82     | 17             | 4.75           |
+  | Chiaia        | 184.90    | 729            | 4.75           |
+
+### Step 6: Sampling
+- Samples 10% of listings for faster processing.
+- **Output:** Sampled listings: 1068 rows  
+
+### Step 7: Cleaning
+- Removes duplicate IDs and standardizes values.
+- **Output:**  
+  - Listings: (1068, 81)  
+  - Reviews: adjusted after duplicate removal (5 duplicates removed)
+
+### Step 8: Handle Missing Values
+- Imputes numeric columns and fills categorical gaps.
+- **Output:**  
+  - Total missing values before imputation: 8967  
+  - Total missing values after imputation: 4206  
+
+### Step 9: Advanced Preprocessing
+- **9.1: Derived Properties**  
+  - Created 8 new features: `price_per_person`, `host_experience_years`, `availability_ratio`, `amenity_count`, `bathroom_bedroom_ratio`, `avg_review_score`, `location_desirability`, `is_luxury`  
+  - **Output:** (1068, 89)
+
+- **9.2: Discretization & Binarization**  
+  - Discretized price, reviews, availability, accommodates  
+  - Binarized expensive, many reviews, superhost, instant bookable  
+  - **Output:** (1068, 97)  
+
+- **9.3: Property Subset Selection**  
+  - Filtered high-value listings (price ≥ $117)  
+  - **Output:** (270, 97)  
+
+- **9.4: Data Transformations**  
+  - Scaling, log/sqrt transformations, one-hot encoding applied  
+  - **Output:** (270, 179)  
+
+- **9.5: Dimension Reduction**  
+  - PCA reduced 112 numeric features → 26 components (95% variance)  
+  - Univariate selection kept 20 best features  
+  - **Output:**  
+    - PCA dataset: (270, 93)  
+    - Feature-selected dataset: (270, 87)  
+
+- **Preprocessing Summary:**  
+  - Original dataset: 1068 rows, 81 columns  
+  - Processed dataset: 270 rows, 179 columns  
+  - Features added: 98  
+
+### New Features Overview
+The 98 new features can be grouped into categories:
+
+| Category | Feature Examples | Count |
+|----------|-----------------|-------|
+| Binned / Discretized | `price_binned`, `number_of_reviews_x_binned`, `availability_365_binned`, `accommodates_binned` | 8 |
+| Scaled / Normalized | `accommodates_scaled`, `beds_scaled`, `price_scaled`, `avg_review_score_scaled` | 32 |
+| Derived / Calculated | `price_per_person`, `host_experience_years`, `availability_ratio`, `amenity_count` | 8 |
+| Ratio / Interaction | `bathroom_bedroom_ratio`, `availability_ratio_scaled` | 4 |
+| Binary / Flags | `is_expensive`, `has_many_reviews`, `is_superhost_binary`, `is_instant_bookable_binary` | 8 |
+| One-Hot Encoded | `room_type_*`, `property_type_*`, `neighbourhood_cleansed_*` | 38 |
+
+This categorization provides a quick overview of the types of features added during preprocessing.
+
+### Step 10: Save Processed Data
+- Saves final datasets to `processed dataset` folder:  
+  - `integrated_listings.csv` (270 rows, 179 columns)  
+  - `listings_pca.csv` (PCA-reduced dataset)  
+  - `listings_selected_features.csv` (feature-selected dataset)  
+- **Output:** Ready-to-use CSV files for analysis or modeling.
