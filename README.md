@@ -27,6 +27,46 @@ This project focuses on analyzing and visualizing Airbnb listings data for Naple
 - Ensure scalability for large datasets while optimizing memory usage  
 - Enable downstream analysis for pricing trends, review patterns, and neighborhood insights  
 
+## Technologies Used
+- **Python 3.11** – Primary programming language  
+- **pandas, numpy** – Data manipulation and numerical operations  
+- **scikit-learn** – Feature engineering, preprocessing, and PCA  
+- **matplotlib, seaborn** – Visualization (optional for exploration)  
+- **OS / pathlib** – File and path handling  
+- **datetime, re** – Preprocessing dates and text  
+
+---
+
+## Installation and Setup
+
+1. **Clone the repository**
+
+```bash
+git clone https://github.com/ylljetakicaj/PVDH_G12.git
+cd PVDH-Project
+```
+2. **Create and activate a virtual environment**
+```bash
+# Activate the environment
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# Linux / Mac
+source venv/bin/activate
+``` 
+3. **Install required packages**
+```bash
+pip install -r requirements.txt
+``` 
+4. **Run the main pipeline**
+```bash
+python src/main.py
+``` 
+
+1. **Clone the repository**
+
 ## Dataset Description
 
 The project uses Airbnb listings data for Naples, downloaded from [Inside Airbnb](https://insideairbnb.com/get-the-data/). The dataset consists of **three main files**: `listings.csv`, `reviews.csv`, and `neighbourhoods.csv`.
