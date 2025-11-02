@@ -32,36 +32,51 @@ def load_datasets(directory_path):
     
     return datasets
 
+
 def define_data_types(df, dataset_name):
-    """Define data types for each dataset."""
+    """Define data types for each dataset and print summary info."""
     print(f"Defining data types for {dataset_name} ({len(df)} rows)")
     
-    if dataset_name == "listings":
-        if 'id' in df.columns:
-            df['id'] = df['id'].astype(str)
-        if 'host_id' in df.columns:
-            df['host_id'] = df['host_id'].astype(str)
-        if 'price' in df.columns:
-            df['price'] = df['price'].replace('[\$,]', '', regex=True).astype(float, errors='ignore')
-        for col in ['host_response_rate', 'host_acceptance_rate']:
-            if col in df.columns:
-                df[col] = df[col].replace('%', '', regex=True).astype(float, errors='ignore') / 100
-        for col in ['last_scraped', 'first_review', 'last_review']:
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
-        for col in ['neighbourhood_cleansed', 'property_type', 'room_type', 'host_is_superhost']:
-            if col in df.columns:
-                df[col] = df[col].astype('category')
-    elif dataset_name == "reviews":
-        if 'listing_id' in df.columns:
-            df['listing_id'] = df['listing_id'].astype(str)
-        if 'reviewer_id' in df.columns:
-            df['reviewer_id'] = df['reviewer_id'].astype(str)
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'], errors='coerce')
-    elif dataset_name == "neighbourhoods":
-        for col in ['neighbourhood', 'neighbourhood_cleansed', 'neighbourhood_group']:
-            if col in df.columns:
-                df[col] = df[col].astype('category')
-    
+    try:
+        if dataset_name == "listings":
+            if 'id' in df.columns:
+                df['id'] = df['id'].astype(str)
+            if 'host_id' in df.columns:
+                df['host_id'] = df['host_id'].astype(str)
+            if 'price' in df.columns:
+                df['price'] = df['price'].replace('[\$,]', '', regex=True)
+                df['price'] = pd.to_numeric(df['price'], errors='coerce')
+            for col in ['host_response_rate', 'host_acceptance_rate']:
+                if col in df.columns:
+                    df[col] = df[col].replace('%', '', regex=True)
+                    df[col] = pd.to_numeric(df[col], errors='coerce') / 100
+            for col in ['last_scraped', 'first_review', 'last_review']:
+                if col in df.columns:
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+            for col in ['neighbourhood_cleansed', 'property_type', 'room_type', 'host_is_superhost']:
+                if col in df.columns:
+                    df[col] = df[col].astype('category')
+
+        elif dataset_name == "reviews":
+            if 'listing_id' in df.columns:
+                df['listing_id'] = df['listing_id'].astype(str)
+            if 'reviewer_id' in df.columns:
+                df['reviewer_id'] = df['reviewer_id'].astype(str)
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'], errors='coerce')
+
+        elif dataset_name == "neighbourhoods":
+            for col in ['neighbourhood', 'neighbourhood_cleansed', 'neighbourhood_group']:
+                if col in df.columns:
+                    df[col] = df[col].astype('category')
+
+        # ✅ Add summary at the end
+        print(f"{dataset_name.capitalize()} shape after type definition: {df.shape}")
+        print("  Column types summary:")
+        print(df.dtypes.value_counts().to_string())
+        print("-" * 60)
+
+    except Exception as e:
+        print(f"⚠ Error defining data types for {dataset_name}: {e}")
+
     return df

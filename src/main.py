@@ -8,16 +8,17 @@ from integration import merge_neighbourhoods, merge_reviews, aggregate_listings,
 from cleaning import clean_data, identify_missing, handle_missing_values
 from advanced_preprocessing import AdvancedPreprocessor
 
+
 def main():
     try:
         # Get the root directory (parent of src/)
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         unprocessed_dir = os.path.join(root_dir, "unprocessed dataset")
         processed_dir = os.path.join(root_dir, "processed dataset")
-        
+
         # Create processed dataset directory if it doesn't exist
         os.makedirs(processed_dir, exist_ok=True)
-        
+
         print(f"Root directory: {root_dir}")
         print(f"Unprocessed dataset directory: {unprocessed_dir}")
         print(f"Processed dataset directory: {processed_dir}")
@@ -29,11 +30,11 @@ def main():
         listings = datasets.get('listings')
         reviews = datasets.get('reviews')
         neighbourhoods = datasets.get('neighbourhoods')
-        
+
         if not datasets:
             print("Error: No datasets loaded. Check 'unprocessed dataset' directory.")
             return
-            
+
         print(f"Available datasets: {list(datasets.keys())}")
         print(f"Data loading took {time.time() - start_time:.2f} seconds")
 
@@ -42,23 +43,22 @@ def main():
         print("\n=== STEP 2: DEFINE DATA TYPES ===")
         if listings is not None:
             listings = define_data_types(listings, "listings")
-            print(f"Listings shape after type definition: {listings.shape}")
         else:
             print("Warning: listings.csv not loaded.")
+
         if reviews is not None:
-            # Optional: Sample reviews to improve performance
             if len(reviews) > 100000:
                 reviews = reviews.sample(n=100000, random_state=42)
                 print(f"Sampled reviews to {len(reviews)} rows for performance")
             reviews = define_data_types(reviews, "reviews")
-            print(f"Reviews shape after type definition: {reviews.shape}")
         else:
             print("Warning: reviews.csv not loaded.")
+
         if neighbourhoods is not None:
             neighbourhoods = define_data_types(neighbourhoods, "neighbourhoods")
-            print(f"Neighbourhoods shape after type definition: {neighbourhoods.shape}")
         else:
             print("Warning: neighbourhoods.csv not loaded.")
+
         print(f"Type definition took {time.time() - start_time:.2f} seconds")
 
         # Step 3: Data Quality Assessment
@@ -87,11 +87,13 @@ def main():
             print(f"After neighbourhood merge: {listings.shape}")
         else:
             print("Skipping neighbourhood merge: listings or neighbourhoods is None")
+
         if listings is not None and reviews is not None:
             listings = merge_reviews(listings, reviews)
             print(f"After reviews merge: {listings.shape}")
         else:
             print("Skipping reviews merge: listings or reviews is None")
+
         print(f"Integration took {time.time() - start_time:.2f} seconds")
 
         # Step 5: Aggregation
@@ -137,6 +139,7 @@ def main():
             print(f"After cleaning: {listings.shape}")
         else:
             print("Skipping listings cleaning: listings is None")
+
         if reviews is not None:
             reviews = clean_data(reviews, "reviews")
         else:
@@ -152,7 +155,6 @@ def main():
             total_missing = sum(missing_report.values())
             print(f"Total missing values before imputation: {total_missing}")
             listings = handle_missing_values(listings, "listings")
-            # Verify missing values after imputation
             missing_after = identify_missing(listings)
             total_missing_after = sum(missing_after.values())
             print(f"Total missing values after imputation: {total_missing_after}")
@@ -160,21 +162,16 @@ def main():
             print("Skipping missing value handling: listings is None")
         print(f"Missing value handling took {time.time() - start_time:.2f} seconds")
 
-    # Step 9: Advanced Preprocessing
+        # Step 9: Advanced Preprocessing
         start_time = time.time()
         print("\n=== STEP 9: ADVANCED PREPROCESSING ===")
         if listings is not None:
-            # Initialize advanced preprocessor
             preprocessor = AdvancedPreprocessor()
-            
-            # Store original for comparison
             original_listings = listings.copy()
-            
-            # 9.1: Property Creation (create derived features first)
+
             print("\n--- 9.1: Creating Derived Properties ---")
             listings = preprocessor.create_derived_properties(listings)
-            
-            #Discretization and binarization
+
             print("\n--- 9.2: Discretization and Binarization ---")
             try:
                 listings = preprocessor.discretize_and_binarize(listings)
@@ -182,83 +179,69 @@ def main():
             except Exception as e:
                 print(f"Discretization and binarization failed: {e}")
 
-            #Property subset selection
             print("\n--- 9.3: Property Subset Selection ---")
             listings = preprocessor.select_property_subsets(listings, subset_type='high_value')
             print(f"After property subset selection: {listings.shape}")
-            
-            
-            # 9.4: Data Transformations
+
             print("\n--- 9.4: Data Transformations ---")
             listings = preprocessor.apply_transformations(listings)
-            
-            # 9.5: Dimension Reduction (apply last to work with all features)
+
             print("\n--- 9.5: Dimension Reduction ---")
-            # Apply PCA to reduce dimensionality for visualization
             listings_pca = preprocessor.dimension_reduction(
-                listings, 
-                target_col='price', 
-                method='pca', 
+                listings,
+                target_col='price',
+                method='pca',
                 n_components=0.95,
                 feature_types='numeric'
             )
-            
-            # Apply feature selection to identify most important features
             listings_selected = preprocessor.dimension_reduction(
-                listings, 
-                target_col='price', 
-                method='univariate', 
+                listings,
+                target_col='price',
+                method='univariate',
                 n_components=20,
                 feature_types='numeric'
             )
-            
-            # Generate preprocessing summary
+
             summary = preprocessor.get_preprocessing_summary(original_listings, listings)
-            
         else:
             print("Skipping advanced preprocessing: listings is None")
         print(f"Advanced preprocessing took {time.time() - start_time:.2f} seconds")
 
-        # Step 10: Save Processed Data
+        # Step 10: Save Processed Data (all integrated in one CSV)
         start_time = time.time()
         print("\n=== STEP 10: SAVE PROCESSED DATA ===")
+
         if listings is not None:
-            # Save main processed dataset
-            output_path = os.path.join(processed_dir, "integrated_listings.csv")
-            listings.to_csv(output_path, index=False)
-            print(f"Main processed data saved to: {output_path}")
-            
-            # Save PCA-reduced dataset
-            if 'listings_pca' in locals():
-                pca_path = os.path.join(processed_dir, "listings_pca.csv")
-                listings_pca.to_csv(pca_path, index=False)
-                print(f"PCA-reduced data saved to: {pca_path}")
-            
-            # Save feature-selected dataset
-            if 'listings_selected' in locals():
-                selected_path = os.path.join(processed_dir, "listings_selected_features.csv")
-                listings_selected.to_csv(selected_path, index=False)
-                print(f"Feature-selected data saved to: {selected_path}")
-            
-            print(f"Final dataset shape: {listings.shape}")
-            print("Final dataset columns:", len(listings.columns), "total columns")
-            
-            # Show sample of new features
-            new_cols = [col for col in listings.columns if col not in original_listings.columns]
-            if new_cols:
-                print(f"New features created: {len(new_cols)}")
-                print("Sample new features:", new_cols[:10])
+            final_df = listings.copy()
+
+            # Merge PCA features if they exist
+            if 'listings_pca' in locals() and not listings_pca.empty:
+                pca_cols = [c for c in listings_pca.columns if c not in final_df.columns]
+                final_df = pd.concat([final_df, listings_pca[pca_cols]], axis=1)
+
+            # Merge univariate-selected features if they exist
+            if 'listings_selected' in locals() and not listings_selected.empty:
+                selected_cols = [c for c in listings_selected.columns if c not in final_df.columns]
+                final_df = pd.concat([final_df, listings_selected[selected_cols]], axis=1)
+
+            # Save integrated file
+            integrated_path = os.path.join(processed_dir, "integrated_processed_listings.csv")
+            final_df.to_csv(integrated_path, index=False)
+            print(f"All processed data saved in one CSV: {integrated_path}")
+            print(f"Final dataset shape: {final_df.shape}")
+            print(f"Final dataset columns: {len(final_df.columns)} total columns")
+
         else:
             print("Skipping save: listings is None")
-        print(f"Saving took {time.time() - start_time:.2f} seconds")
-        
-        print("\n=== ADVANCED PREPROCESSING PIPELINE COMPLETED SUCCESSFULLY ===")
 
+        print(f"Saving took {time.time() - start_time:.2f} seconds")
+        print("\n=== ADVANCED PREPROCESSING PIPELINE COMPLETED SUCCESSFULLY ===")
 
     except Exception as e:
         print("\n=== ERROR OCCURRED ===")
         print(f"Exception: {e}")
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()

@@ -30,8 +30,7 @@ This project focuses on analyzing and visualizing Airbnb listings data for Naple
 ## Technologies Used
 - **Python 3.11** – Primary programming language  
 - **pandas, numpy** – Data manipulation and numerical operations  
-- **scikit-learn** – Feature engineering, preprocessing, and PCA  
-- **matplotlib, seaborn** – Visualization (optional for exploration)  
+- **scikit-learn** – Feature engineering, preprocessing, and PCA   
 - **OS / pathlib** – File and path handling  
 - **datetime, re** – Preprocessing dates and text  
 

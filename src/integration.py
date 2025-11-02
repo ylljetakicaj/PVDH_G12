@@ -206,23 +206,32 @@ def merge_reviews(listings, reviews):
         return listings
 
 def aggregate_listings(df, group_by):
-    """Aggregate listings by a column (e.g., neighbourhood_cleansed)."""
+    """Aggregate listings by a column (e.g., neighbourhood_cleansed) with extended statistics."""
     try:
         if group_by not in df.columns:
             print(f"Error: '{group_by}' column not found in dataframe")
             return pd.DataFrame()
         
-        agg_df = df.groupby(group_by, observed=True).agg({
-            'price': ['mean', 'count'],
-            'review_scores_rating': 'mean'
-        }).reset_index()
+        # Define aggregation dictionary
+        agg_dict = {
+            'price': ['mean', 'median', 'min', 'max', 'std', 'count'],
+            'review_scores_rating': ['mean', 'median', 'min', 'max', 'std']
+        }
+        
+        # Perform aggregation
+        agg_df = df.groupby(group_by, observed=True).agg(agg_dict).reset_index()
         
         # Flatten multi-level column names
         agg_df.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in agg_df.columns]
+        
+        # Optional: rename columns for clarity
+        agg_df.rename(columns={f'{group_by}_': group_by}, inplace=True)
+        
         return agg_df
     except Exception as e:
         print(f"Aggregation error: {e}")
         return pd.DataFrame()
+
 
 def sample_data(df, n_samples, method='random'):
     """Sample data with random or stratified sampling."""

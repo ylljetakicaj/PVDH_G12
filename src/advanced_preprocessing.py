@@ -403,7 +403,6 @@ class AdvancedPreprocessor:
             print(f"  - {feature}")
             
         return result_df
-    
         """
         Apply discretization and binarization to continuous variables.
         
@@ -625,16 +624,14 @@ class AdvancedPreprocessor:
         print(f"Processed dataset: {processed_df.shape[0]} rows, {processed_df.shape[1]} columns")
         print(f"Features added: {processed_df.shape[1] - original_df.shape[1]}")
         
-        # Show new columns
         new_cols = set(processed_df.columns) - set(original_df.columns)
         if new_cols:
             print(f"\nNew features created ({len(new_cols)}):")
-            for col in sorted(new_cols)[:20]:  # Show first 20
+            for col in sorted(new_cols)[:20]:  
                 print(f"  - {col}")
             if len(new_cols) > 20:
                 print(f"  ... and {len(new_cols) - 20} more")
                 
-        # Show memory usage
         original_memory = original_df.memory_usage(deep=True).sum() / 1024**2
         processed_memory = processed_df.memory_usage(deep=True).sum() / 1024**2
         print(f"\nMemory usage: {original_memory:.1f} MB -> {processed_memory:.1f} MB")
