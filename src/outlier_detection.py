@@ -30,4 +30,18 @@ class OutlierDetector:
 
         return df
 
-   
+     # ------------------------------------------
+    # 2. Z-Score Outliers
+    # ------------------------------------------
+    def detect_zscore(self, df, columns, threshold=3):
+        for col in columns:
+            if col not in df.columns:
+                continue
+
+            df[f"outlier_zscore_{col}"] = (
+                abs(zscore(df[col].fillna(df[col].mean()))) > threshold
+            )
+
+            self.summary[f"zscore_{col}"] = df[f"outlier_zscore_{col}"].sum()
+
+        return df
