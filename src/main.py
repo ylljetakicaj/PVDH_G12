@@ -7,6 +7,7 @@ from data_quality import check_quality
 from integration import merge_neighbourhoods, merge_reviews, aggregate_listings, sample_data
 from cleaning import clean_data, identify_missing, handle_missing_values
 from advanced_preprocessing import AdvancedPreprocessor
+from outlier_detection import OutlierDetector
 
 
 def main():
@@ -207,9 +208,154 @@ def main():
             print("Skipping advanced preprocessing: listings is None")
         print(f"Advanced preprocessing took {time.time() - start_time:.2f} seconds")
 
-        # Step 10: Save Processed Data (all integrated in one CSV)
+        # Step 10: Outlier Detection
         start_time = time.time()
-        print("\n=== STEP 10: SAVE PROCESSED DATA ===")
+        print("\n=== STEP 10: OUTLIER DETECTION ===")
+        if listings is not None:
+            print("Detecting outliers using multiple methods...")
+            detector = OutlierDetector()
+            
+            # Identify numeric columns for outlier detection
+            numeric_cols = listings.select_dtypes(include=['number']).columns.tolist()
+            
+            # Remove columns that are not meaningful for outlier detection
+            # (like IDs, indices, or columns that are already binary flags)
+            exclude_cols = ['id', 'host_id', 'scrape_id', 'listing_id', 'reviewer_id']
+            meaningful_cols = [col for col in numeric_cols if col not in exclude_cols]
+            
+            # Also exclude columns that are already outlier flags (if any)
+            meaningful_cols = [col for col in meaningful_cols if not col.startswith('outlier_')]
+            
+            # Select key columns for IQR and Z-Score detection
+            # Focus on important features like price, ratings, counts, etc.
+            key_cols = []
+            priority_keywords = ['price', 'rating', 'score', 'review', 'accommodates', 
+                               'bedroom', 'bathroom', 'availability', 'count']
+            
+            for col in meaningful_cols:
+                col_lower = col.lower()
+                if any(keyword in col_lower for keyword in priority_keywords):
+                    key_cols.append(col)
+            
+            # If we have too many columns, limit to top 15 most important ones
+            if len(key_cols) > 15:
+                # Prioritize columns with more variation
+                key_cols_var = [(col, listings[col].var()) for col in key_cols if listings[col].var() > 0]
+                key_cols_var.sort(key=lambda x: x[1], reverse=True)
+                key_cols = [col for col, _ in key_cols_var[:15]]
+            
+            print(f"Using {len(key_cols)} key columns for IQR and Z-Score detection")
+            print(f"Key columns: {', '.join(key_cols[:10])}{'...' if len(key_cols) > 10 else ''}")
+            
+            # 1. IQR Outliers
+            print("\n--- 10.1: IQR Outlier Detection ---")
+            try:
+                listings = detector.detect_iqr(listings, key_cols)
+                iqr_summary = {k: v for k, v in detector.get_summary().items() if k.startswith('iqr_')}
+                total_iqr = sum(iqr_summary.values())
+                print(f"Total IQR outliers detected: {total_iqr}")
+                if iqr_summary:
+                    print("Top IQR outliers by column:")
+                    sorted_iqr = sorted(iqr_summary.items(), key=lambda x: x[1], reverse=True)[:5]
+                    for col, count in sorted_iqr:
+                        print(f"  {col.replace('iqr_', '')}: {count} outliers")
+            except Exception as e:
+                print(f"IQR detection error: {e}")
+            
+            # 2. Z-Score Outliers
+            print("\n--- 10.2: Z-Score Outlier Detection ---")
+            try:
+                listings = detector.detect_zscore(listings, key_cols, threshold=3)
+                zscore_summary = {k: v for k, v in detector.get_summary().items() if k.startswith('zscore_')}
+                total_zscore = sum(zscore_summary.values())
+                print(f"Total Z-Score outliers detected: {total_zscore}")
+                if zscore_summary:
+                    print("Top Z-Score outliers by column:")
+                    sorted_zscore = sorted(zscore_summary.items(), key=lambda x: x[1], reverse=True)[:5]
+                    for col, count in sorted_zscore:
+                        print(f"  {col.replace('zscore_', '')}: {count} outliers")
+            except Exception as e:
+                print(f"Z-Score detection error: {e}")
+            
+            # 3. Isolation Forest
+            print("\n--- 10.3: Isolation Forest Outlier Detection ---")
+            try:
+                # Use all meaningful numeric columns for multivariate methods
+                feature_cols = meaningful_cols.copy()
+                # Limit to reasonable number of features for performance
+                if len(feature_cols) > 50:
+                    # Select features with highest variance
+                    feature_vars = [(col, listings[col].var()) for col in feature_cols if listings[col].var() > 0]
+                    feature_vars.sort(key=lambda x: x[1], reverse=True)
+                    feature_cols = [col for col, _ in feature_vars[:50]]
+                
+                listings = detector.detect_isolation_forest(listings, feature_cols, contamination=0.05)
+                iforest_count = detector.get_summary().get('isolation_forest', 0)
+                print(f"Isolation Forest outliers detected: {iforest_count}")
+            except Exception as e:
+                print(f"Isolation Forest detection error: {e}")
+            
+            # 4. Local Outlier Factor (LOF)
+            print("\n--- 10.4: Local Outlier Factor (LOF) Detection ---")
+            try:
+                listings = detector.detect_lof(listings, feature_cols, contamination=0.05)
+                lof_count = detector.get_summary().get('lof', 0)
+                print(f"LOF outliers detected: {lof_count}")
+            except Exception as e:
+                print(f"LOF detection error: {e}")
+            
+            # 5. Mahalanobis Distance (if PCA components exist)
+            print("\n--- 10.5: Mahalanobis Distance Detection ---")
+            try:
+                # Check if we have PCA components from advanced preprocessing
+                pca_cols = [col for col in listings.columns if 'pca' in col.lower() or col.startswith('PC')]
+                if len(pca_cols) >= 2:
+                    listings = detector.detect_mahalanobis(listings, pca_cols, threshold=3.5)
+                    mahalanobis_count = detector.get_summary().get('mahalanobis', 0)
+                    print(f"Mahalanobis Distance outliers detected: {mahalanobis_count}")
+                else:
+                    print("Skipping Mahalanobis: Not enough PCA components found")
+            except Exception as e:
+                print(f"Mahalanobis detection error: {e}")
+            
+            # 6. Compute Combined Outlier Score
+            print("\n--- 10.6: Computing Combined Outlier Score ---")
+            try:
+                listings = detector.compute_outlier_score(listings)
+                
+                # Map outlier types
+                if 'outlier_score' in listings.columns:
+                    listings['outlier_type'] = listings['outlier_score'].apply(detector.map_outlier_type)
+                    
+                    # Print summary
+                    outlier_type_counts = listings['outlier_type'].value_counts()
+                    print("Outlier type distribution:")
+                    for outlier_type, count in outlier_type_counts.items():
+                        print(f"  {outlier_type}: {count} ({count/len(listings)*100:.1f}%)")
+                    
+                    # Count total outliers (score > 0)
+                    total_outliers = (listings['outlier_score'] > 0).sum()
+                    print(f"\nTotal records with at least one outlier flag: {total_outliers} ({total_outliers/len(listings)*100:.1f}%)")
+                    
+                    # Count extreme outliers (score >= 3)
+                    extreme_outliers = (listings['outlier_score'] >= 3).sum()
+                    print(f"Extreme outliers (score >= 3): {extreme_outliers} ({extreme_outliers/len(listings)*100:.1f}%)")
+            except Exception as e:
+                print(f"Outlier score computation error: {e}")
+            
+            # Print final summary
+            print("\n--- Outlier Detection Summary ---")
+            final_summary = detector.get_summary()
+            print(f"Total outlier detection methods executed: {len([k for k in final_summary.keys() if not k.startswith('iqr_') and not k.startswith('zscore_')])}")
+            print(f"Dataset shape after outlier detection: {listings.shape}")
+            
+        else:
+            print("Skipping outlier detection: listings is None")
+        print(f"Outlier detection took {time.time() - start_time:.2f} seconds")
+
+        # Step 11: Save Processed Data (all integrated in one CSV)
+        start_time = time.time()
+        print("\n=== STEP 11: SAVE PROCESSED DATA ===")
 
         if listings is not None:
             final_df = listings.copy()
@@ -230,12 +376,22 @@ def main():
             print(f"All processed data saved in one CSV: {integrated_path}")
             print(f"Final dataset shape: {final_df.shape}")
             print(f"Final dataset columns: {len(final_df.columns)} total columns")
+            
+            # Count outlier detection columns
+            outlier_cols = [col for col in final_df.columns if col.startswith('outlier_')]
+            if outlier_cols:
+                print(f"Outlier detection columns included: {len(outlier_cols)}")
+                print(f"  - Outlier flags: {len([c for c in outlier_cols if not c.endswith('_score') and c != 'outlier_type'])}")
+                print(f"  - Outlier score: {'outlier_score' in outlier_cols}")
+                print(f"  - Outlier type: {'outlier_type' in outlier_cols}")
 
         else:
             print("Skipping save: listings is None")
 
         print(f"Saving took {time.time() - start_time:.2f} seconds")
-        print("\n=== ADVANCED PREPROCESSING PIPELINE COMPLETED SUCCESSFULLY ===")
+        print("\n=== DATA PREPROCESSING PIPELINE COMPLETED SUCCESSFULLY ===")
+        print("Pipeline includes: Data Collection, Quality Assessment, Integration, Cleaning,")
+        print("Advanced Preprocessing, and Outlier Detection")
 
     except Exception as e:
         print("\n=== ERROR OCCURRED ===")
