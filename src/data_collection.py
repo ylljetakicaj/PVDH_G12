@@ -70,13 +70,12 @@ def define_data_types(df, dataset_name):
                 if col in df.columns:
                     df[col] = df[col].astype('category')
 
-        # ✅ Add summary at the end
         print(f"{dataset_name.capitalize()} shape after type definition: {df.shape}")
         print("  Column types summary:")
         print(df.dtypes.value_counts().to_string())
         print("-" * 60)
 
     except Exception as e:
-        print(f"⚠ Error defining data types for {dataset_name}: {e}")
+        print(f"Error defining data types for {dataset_name}: {e}")
 
     return df

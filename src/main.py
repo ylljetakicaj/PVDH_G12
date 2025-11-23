@@ -343,10 +343,83 @@ def main():
             except Exception as e:
                 print(f"Outlier score computation error: {e}")
             
+            # 7. Filter False Detections
+            print("\n--- 10.7: Filtering False Detections ---")
+            try:
+                # Validate outliers (require at least 2 methods to agree)
+                listings = detector.validate_outliers(listings, min_agreement=2, use_multivariate=True)
+                
+                # Filter false detections using agreement method
+                listings = detector.filter_false_detections(
+                    listings, 
+                    method='agreement', 
+                    min_agreement=2
+                )
+                
+                # Get false detection report
+                false_detection_report = detector.get_false_detection_report(listings)
+                
+                if false_detection_report:
+                    print("False Detection Report:")
+                    if "total_detected" in false_detection_report:
+                        print(f"  Total detected outliers: {false_detection_report['total_detected']}")
+                    if "false_positives" in false_detection_report:
+                        print(f"  False positives: {false_detection_report['false_positives']}")
+                        print(f"  False positive rate: {false_detection_report['false_positive_rate']:.1f}%")
+                    if "confirmed_outliers" in false_detection_report:
+                        print(f"  Confirmed outliers: {false_detection_report['confirmed_outliers']}")
+                        print(f"  Filtered out: {false_detection_report.get('filtered_out', 0)}")
+                    
+                    # Show which methods contributed to false positives
+                    if "method_contributions" in false_detection_report and false_detection_report["method_contributions"]:
+                        print("\n  Method contributions to false positives:")
+                        for method, count in sorted(false_detection_report["method_contributions"].items(), 
+                                                   key=lambda x: x[1], reverse=True)[:5]:
+                            method_name = method.replace("outlier_", "").replace("iqr_", "IQR-").replace("zscore_", "Z-Score-")
+                            print(f"    {method_name}: {count}")
+                
+                # Show validation statistics
+                if "outlier_validated" in listings.columns:
+                    validated_count = listings["outlier_validated"].sum()
+                    total_with_flags = (listings.get("outlier_score", pd.Series([0] * len(listings))) > 0).sum()
+                    print(f"\nValidation Results:")
+                    print(f"  Validated outliers (≥2 methods agree): {validated_count}")
+                    print(f"  Records requiring validation: {total_with_flags}")
+                    if total_with_flags > 0:
+                        validation_rate = (validated_count / total_with_flags) * 100
+                        print(f"  Validation rate: {validation_rate:.1f}%")
+                
+            except Exception as e:
+                print(f"False detection filtering error: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # 8. Optional: Remove Outliers (commented out by default)
+            # Uncomment the following lines if you want to remove outliers from the dataset
+            # print("\n--- 10.8: Removing Confirmed Outliers (Optional) ---")
+            # try:
+            #     initial_count = len(listings)
+            #     listings = detector.remove_outliers(
+            #         listings, 
+            #         method='agreement', 
+            #         min_agreement=2,
+            #         remove_extreme_only=False,  # Set to True to only remove extreme outliers
+            #         keep_flags=True  # Keep outlier flags for analysis
+            #     )
+            #     removed_count = initial_count - len(listings)
+            #     print(f"Removed {removed_count} confirmed outliers from dataset")
+            #     print(f"Dataset shape: {initial_count} -> {len(listings)}")
+            # except Exception as e:
+            #     print(f"Outlier removal error: {e}")
+            
             # Print final summary
             print("\n--- Outlier Detection Summary ---")
             final_summary = detector.get_summary()
             print(f"Total outlier detection methods executed: {len([k for k in final_summary.keys() if not k.startswith('iqr_') and not k.startswith('zscore_')])}")
+            if "validated_outliers" in final_summary:
+                print(f"Validated outliers: {final_summary['validated_outliers']}")
+            if "false_positives" in final_summary:
+                print(f"False positives filtered: {final_summary['false_positives']}")
             print(f"Dataset shape after outlier detection: {listings.shape}")
             
         else:
