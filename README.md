@@ -30,7 +30,8 @@ This project focuses on analyzing and visualizing Airbnb listings data for Naple
 ## Technologies Used
 - **Python 3.11** – Primary programming language  
 - **pandas, numpy** – Data manipulation and numerical operations  
-- **scikit-learn** – Feature engineering, preprocessing, and PCA   
+- **scikit-learn** – Feature engineering, preprocessing, PCA, and outlier detection (Isolation Forest, LOF)  
+- **scipy** – Statistical functions (Z-score)  
 - **OS / pathlib** – File and path handling  
 - **datetime, re** – Preprocessing dates and text  
 
@@ -171,7 +172,7 @@ Provides a list of neighborhoods in Naples, useful for geographic filtering or m
 ---
 # Main Pipeline: Airbnb Data Preprocessing and Advanced Analysis
 
-The `main.py` script orchestrates the **entire data preprocessing, integration, cleaning, and advanced feature engineering workflow**. It uses all other modules (`data_collection`, `data_quality`, `integration`, `cleaning`, `advanced_preprocessing`) to produce a fully processed Airbnb dataset ready for analysis or modeling.
+The `main.py` script orchestrates the **entire data preprocessing, integration, cleaning, advanced feature engineering, and outlier detection workflow**. It uses all other modules (`data_collection`, `data_quality`, `integration`, `cleaning`, `advanced_preprocessing`, `outlier_detection`) to produce a fully processed Airbnb dataset ready for analysis or modeling.
 
 ---
 
@@ -241,10 +242,22 @@ Uses the `AdvancedPreprocessor` class for:
   - Univariate feature selection for top features
 - Prints shapes and feature summaries at each step.
 
-### 11. Save Processed Data
-- Saves final processed listings to CSV.
-- Saves PCA-reduced dataset and feature-selected dataset separately.
-- Prints final dataset shape, number of columns, and sample newly created features.
+### 11. Outlier Detection
+Uses the `OutlierDetector` class to identify and validate outliers using multiple methods:
+- **IQR Outliers:** Detects outliers using Interquartile Range method for key columns
+- **Z-Score Outliers:** Identifies outliers based on Z-score threshold (default: 3)
+- **Isolation Forest:** Multivariate outlier detection using ensemble method
+- **Local Outlier Factor (LOF):** Density-based outlier detection
+- **Mahalanobis Distance:** Distance-based detection using PCA components (if available)
+- **Combined Score:** Computes overall outlier score by combining all methods
+- **Outlier Validation:** Validates outliers by requiring agreement from ≥2 methods
+- **False Detection Filtering:** Filters out false positives and reports statistics
+- Prints detailed reports including false positive rate and method contributions.
+
+### 12. Save Processed Data
+- Saves final processed listings to CSV with all outlier detection flags and scores.
+- Includes outlier flags, outlier_score, outlier_type, and validation results.
+- Prints final dataset shape, number of columns, and outlier detection summary.
 
 ---
 
@@ -257,10 +270,39 @@ Uses the `AdvancedPreprocessor` class for:
 ---
 
 ## Example Output
-- `integrated_listings.csv` – fully processed dataset
-- `listings_pca.csv` – PCA-reduced dataset
-- `listings_selected_features.csv` – top selected features
+- `integrated_processed_listings.csv` – fully processed dataset with outlier detection flags
 - Summary of new features created during preprocessing is printed to console.
+- Outlier detection summary with false positive statistics is printed to console.
+
+## Outlier Detection Features
+
+The pipeline includes comprehensive outlier detection with the following capabilities:
+
+### Detection Methods
+1. **IQR (Interquartile Range)** - Univariate method for individual columns
+2. **Z-Score** - Statistical method based on standard deviations
+3. **Isolation Forest** - Multivariate ensemble method
+4. **Local Outlier Factor (LOF)** - Density-based multivariate method
+5. **Mahalanobis Distance** - Distance-based method using PCA components
+
+### Validation & Filtering
+- **Outlier Validation:** Requires agreement from ≥2 methods to confirm an outlier
+- **False Positive Filtering:** Automatically filters out false detections
+- **False Positive Rate:** Reports the percentage of false positives detected
+- **Method Contributions:** Shows which methods contributed to false positives
+
+### Output Columns
+- `outlier_iqr_{column}` - IQR outlier flags for each column
+- `outlier_zscore_{column}` - Z-Score outlier flags for each column
+- `outlier_iforest` - Isolation Forest outlier flag
+- `outlier_lof` - LOF outlier flag
+- `outlier_mahalanobis` - Mahalanobis Distance outlier flag (if available)
+- `outlier_score` - Combined score (0 = normal, 1 = mild, 2 = strong, ≥3 = extreme)
+- `outlier_type` - Classification: normal, mild, strong, extreme
+- `outlier_validated` - Validated outliers (≥2 methods agree)
+- `outlier_confirmed` - Confirmed outliers after filtering
+- `outlier_false_positive` - False positive flags
+- `outlier_agreement_count` - Number of methods that flagged each record
   
 # Airbnb Data Processing Pipeline
 
@@ -396,17 +438,71 @@ Filtered high-value listings (price ≥ $117)
 
 ---
 
-### Step 10: Save Processed Data
+### Step 10: Outlier Detection
+
+Detects outliers using multiple methods and validates results:
+
+#### 10.1 IQR Outlier Detection
+- Detects outliers using Interquartile Range (Q1 - 1.5×IQR, Q3 + 1.5×IQR)
+- Applied to key columns (price, ratings, counts, etc.)
+
+#### 10.2 Z-Score Outlier Detection
+- Identifies outliers with |Z-score| > 3
+- Applied to key columns
+
+#### 10.3 Isolation Forest
+- Multivariate outlier detection using ensemble method
+- Contamination rate: 5%
+
+#### 10.4 Local Outlier Factor (LOF)
+- Density-based outlier detection
+- Contamination rate: 5%
+
+#### 10.5 Mahalanobis Distance
+- Distance-based detection using PCA components (if available)
+- Threshold: 3.5
+
+#### 10.6 Combined Outlier Score
+- Computes overall score by summing all outlier flags
+- Maps to types: normal (0), mild (1), strong (2), extreme (≥3)
+
+#### 10.7 False Detection Filtering
+- Validates outliers requiring agreement from ≥2 methods
+- Filters false positives
+- Reports false positive rate and method contributions
+
+**Output Example:**
+- Total detected outliers: 159
+- False positives filtered: 56 (35.2%)
+- Confirmed outliers: 103
+- Validation rate: 64.8%
+
+**Output:** (270, 225) with outlier detection columns
+
+---
+
+### Step 11: Save Processed Data
 Saves the **final dataset** to the processed dataset folder:
 
-- `integrated_processed_listings.csv` (270 rows, 182 columns)  
+- `integrated_processed_listings.csv` (270 rows, 252 columns)  
 
-**Output:** Ready-to-use CSV file for analysis or modeling.
+**Output includes:**
+- All preprocessed features
+- Outlier detection flags (IQR, Z-Score, Isolation Forest, LOF, Mahalanobis)
+- `outlier_score` - Combined outlier score
+- `outlier_type` - Classification (normal, mild, strong, extreme)
+- `outlier_validated` - Validated outliers (≥2 methods agree)
+- `outlier_confirmed` - Confirmed outliers after filtering
+- `outlier_false_positive` - False positive flags
+
+**Output:** Ready-to-use CSV file for analysis or modeling with complete outlier information.
 
 ---
 
 **Notes / Highlights**
-- Total columns after full preprocessing: **182**  
+- Total columns after full preprocessing: **252** (includes 38 outlier detection columns)
 - Total rows after high-value filtering: **270**  
-- Advanced preprocessing pipeline completed successfully in under 1 second.  
+- Advanced preprocessing pipeline completed successfully.
+- Outlier detection identifies and validates outliers using 5 different methods.
+- False positive filtering reduces noise by requiring agreement from multiple methods.
 - Merge warnings handled by filling missing values with defaults.
