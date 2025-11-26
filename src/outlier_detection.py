@@ -329,7 +329,25 @@ class OutlierDetector:
             report["filtered_out"] = report.get("total_detected", 0) - report["confirmed_outliers"]
         
         return report
-    
+        
+    # ------------------------------------------
+    # 12. Categorical Outliers (Rare Labels)
+    # ------------------------------------------
+    def detect_rare_categories(self, df, column, min_freq=0.01):
+        """
+        Flag rare categories in a categorical column.
+
+        Args:
+            df: DataFrame
+            column: categorical column name
+            min_freq: minimum frequency threshold (default 1%)
+        """
+        if column not in df:
+            return df
+
+        freq = df[column].value_counts(normalize=True)
+        rare_values = freq[freq < min_freq].index
+
     # ------------------------------------------
     # Summary
     # ------------------------------------------
