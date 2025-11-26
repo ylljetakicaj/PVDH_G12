@@ -347,6 +347,12 @@ class OutlierDetector:
 
         freq = df[column].value_counts(normalize=True)
         rare_values = freq[freq < min_freq].index
+        
+        flag_name = f"outlier_rare_{column}"
+        df[flag_name] = df[column].isin(rare_values)
+
+        self.summary[flag_name] = df[flag_name].sum()
+        return df
 
     # ------------------------------------------
     # Summary
