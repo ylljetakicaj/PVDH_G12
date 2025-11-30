@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import time
 import traceback
 import os
@@ -209,170 +210,238 @@ def main():
             print("Skipping advanced preprocessing: listings is None")
         print(f"Advanced preprocessing took {time.time() - start_time:.2f} seconds")
 
-        # Step 9.6: Exploratory Data Analysis (EDA)
+        # Step 10: Exploratory Data Analysis (EDA)
         start_time = time.time()
-        print("\n=== STEP 9.6: EXPLORATORY DATA ANALYSIS (EDA) ===")
+        print("\n=== STEP 10: EXPLORATORY DATA ANALYSIS (EDA) ===")
         if listings is not None:
+            # Create output directory for EDA plots
+            eda_output_dir = os.path.join(root_dir, "eda_plots")
+            os.makedirs(eda_output_dir, exist_ok=True)
+            
+            print("Performing exploratory data analysis...")
+            eda = EDAAnalyzer(save_plots=True, output_dir=eda_output_dir)
+            
+            # Get numeric and categorical columns
+            numeric_cols = listings.select_dtypes(include=['float64', 'int64']).columns.tolist()
+            categorical_cols = listings.select_dtypes(include=['object', 'category']).columns.tolist()
+            
+            # Remove outlier flag columns from analysis
+            numeric_cols = [col for col in numeric_cols if not col.startswith('outlier_')]
+            
+            print(f"Analyzing {len(numeric_cols)} numeric columns and {len(categorical_cols)} categorical columns")
+            
+            # ==========================================================
+            # 1. STATISTIKA PËRMBLEDHËSE (SUMMARY STATISTICS)
+            # ==========================================================
+            print("\n--- 10.1: Summary Statistics ---")
             try:
-                print("Performing comprehensive data exploration...")
-                
-                # Initialize EDA Analyzer
-                eda_analyzer = EDAAnalyzer(save_plots=True, output_dir=os.path.join(root_dir, "eda_plots"))
-                
-                # Identify numeric and categorical columns
-                numeric_cols = listings.select_dtypes(include=['number']).columns.tolist()
-                categorical_cols = listings.select_dtypes(include=['object', 'category']).columns.tolist()
-                
-                # Remove ID columns and outlier flags from analysis
-                exclude_from_eda = ['id', 'host_id', 'scrape_id', 'listing_id', 'reviewer_id']
-                numeric_cols = [col for col in numeric_cols if col not in exclude_from_eda 
-                               and not col.startswith('outlier_')]
-                categorical_cols = [col for col in categorical_cols if col not in exclude_from_eda]
-                
-                # Limit to reasonable number of columns for performance
-                if len(numeric_cols) > 30:
-                    # Select columns with highest variance
-                    col_vars = [(col, listings[col].var()) for col in numeric_cols if listings[col].var() > 0]
-                    col_vars.sort(key=lambda x: x[1], reverse=True)
-                    numeric_cols = [col for col, _ in col_vars[:30]]
-                
-                if len(categorical_cols) > 20:
-                    categorical_cols = categorical_cols[:20]
-                
-                # 1. Summary Statistics - Numerical
-                print("\n--- EDA 1: Numerical Summary Statistics ---")
-                if numeric_cols:
-                    num_summary = eda_analyzer.numerical_summary(listings, numeric_cols)
-                    print(f"Generated summary statistics for {len(numeric_cols)} numerical columns")
-                    print("\nSummary Statistics Preview (top 10 columns):")
-                    print(num_summary.head(10).to_string())
-                else:
-                    print("No numerical columns available for summary statistics")
-                
-                # 2. Summary Statistics - Categorical
-                print("\n--- EDA 2: Categorical Summary Statistics ---")
-                if categorical_cols:
-                    cat_summary = eda_analyzer.categorical_summary(listings, categorical_cols)
-                    print(f"Generated summary statistics for {len(categorical_cols)} categorical columns")
-                    print("\nCategorical Summary Preview (first 3 columns):")
-                    for i, (col, counts) in enumerate(cat_summary.items()):
-                        if i >= 3:
-                            break
-                        print(f"\n{col} - Top 5 values:")
-                        print(counts.head(5).to_string())
-                else:
-                    print("No categorical columns available for summary statistics")
-                
-                # 3. Multivariate Analysis - Correlation Matrix
-                print("\n--- EDA 3: Multivariate Analysis - Correlation Matrix ---")
-                if len(numeric_cols) >= 2:
-                    # Limit correlation matrix to top 20 columns for readability
-                    corr_cols = numeric_cols[:20] if len(numeric_cols) > 20 else numeric_cols
-                    corr_matrix = eda_analyzer.correlation_matrix(listings, corr_cols, figsize=(12, 10))
-                    print(f"Generated correlation matrix for {len(corr_cols)} numerical columns")
-                    print("Correlation matrix saved to: eda_plots/correlation_heatmap.png")
+                # Numerical Summary
+                if len(numeric_cols) > 0:
+                    print("Computing numerical summary statistics...")
+                    # Limit to top columns to avoid memory issues
+                    analysis_numeric_cols = numeric_cols[:30] if len(numeric_cols) > 30 else numeric_cols
+                    numerical_summary = eda.numerical_summary(listings, columns=analysis_numeric_cols)
+                    print(f"Numerical summary computed for {len(analysis_numeric_cols)} columns")
+                    print("\nTop 10 numeric columns summary:")
+                    print(numerical_summary.head(10).to_string())
                     
-                    # Show strongest correlations
-                    print("\nStrongest correlations (abs > 0.5):")
-                    for i in range(len(corr_matrix.columns)):
-                        for j in range(i+1, len(corr_matrix.columns)):
-                            corr_val = corr_matrix.iloc[i, j]
-                            if abs(corr_val) > 0.5 and not pd.isna(corr_val):
-                                print(f"  {corr_matrix.columns[i]} <-> {corr_matrix.columns[j]}: {corr_val:.3f}")
+                    # Save summary to CSV
+                    summary_path = os.path.join(eda_output_dir, "numerical_summary.csv")
+                    numerical_summary.to_csv(summary_path)
+                    print(f"Numerical summary saved to: {summary_path}")
                 else:
-                    print("Not enough numerical columns for correlation analysis (need at least 2)")
+                    print("No numeric columns found for summary")
                 
-                # 4. Multivariate Analysis - PCA
-                print("\n--- EDA 4: Multivariate Analysis - PCA ---")
-                if len(numeric_cols) >= 2:
-                    # Use top 15 columns for PCA for performance
-                    pca_cols = numeric_cols[:15] if len(numeric_cols) > 15 else numeric_cols
-                    try:
-                        pca_df, explained_var = eda_analyzer.pca_analysis(listings, pca_cols, n_components=5)
-                        print(f"PCA analysis completed for {len(pca_cols)} features")
-                        print(f"Explained variance by component:")
-                        for i, var in enumerate(explained_var):
-                            print(f"  PC{i+1}: {var*100:.2f}%")
-                        print(f"  Total: {sum(explained_var)*100:.2f}%")
-                        
-                        # Plot PCA if we have at least 2 components
-                        if len(explained_var) >= 2:
-                            eda_analyzer.plot_pca(pca_df)
-                            print("PCA plot saved to: eda_plots/pca_plot.png")
-                    except Exception as e:
-                        print(f"PCA analysis error: {e}")
+                # Categorical Summary
+                if len(categorical_cols) > 0:
+                    print("\nComputing categorical summary statistics...")
+                    # Limit to reasonable number of categorical columns
+                    analysis_cat_cols = categorical_cols[:20] if len(categorical_cols) > 20 else categorical_cols
+                    categorical_summary = eda.categorical_summary(listings, columns=analysis_cat_cols)
+                    print(f"Categorical summary computed for {len(analysis_cat_cols)} columns")
+                    
+                    # Print summary for top 5 categorical columns
+                    print("\nTop 5 categorical columns summary:")
+                    for i, (col, counts) in enumerate(list(categorical_summary.items())[:5]):
+                        print(f"\n{col}:")
+                        print(counts.head(10).to_string())
                 else:
-                    print("Not enough numerical columns for PCA analysis (need at least 2)")
-                
-                # 5. Distribution Plots (sample of key columns)
-                print("\n--- EDA 5: Distribution Plots ---")
-                if numeric_cols:
-                    # Select key columns for distribution plots
-                    key_plot_cols = []
-                    priority_keywords = ['price', 'rating', 'score', 'review', 'accommodates']
-                    for col in numeric_cols[:10]:  # Limit to first 10
-                        col_lower = col.lower()
-                        if any(keyword in col_lower for keyword in priority_keywords) or col in key_plot_cols:
-                            key_plot_cols.append(col)
-                            if len(key_plot_cols) >= 5:
-                                break
+                    print("No categorical columns found for summary")
                     
-                    if not key_plot_cols and numeric_cols:
-                        key_plot_cols = numeric_cols[:5]
-                    
-                    if key_plot_cols:
-                        try:
-                            eda_analyzer.distribution_plots(listings, key_plot_cols)
-                            print(f"Generated distribution plots for {len(key_plot_cols)} columns")
-                            print(f"Plots saved to: eda_plots/distribution_*.png")
-                        except Exception as e:
-                            print(f"Distribution plots error: {e}")
-                
-                # 6. Boxplots (sample of key columns)
-                print("\n--- EDA 6: Boxplots ---")
-                if numeric_cols:
-                    # Reuse key columns from distribution plots or select new ones
-                    if 'key_plot_cols' in locals() and key_plot_cols:
-                        boxplot_cols = key_plot_cols[:5]
-                    else:
-                        # Select key columns for boxplots
-                        boxplot_cols = []
-                        priority_keywords = ['price', 'rating', 'score', 'review', 'accommodates']
-                        for col in numeric_cols[:10]:
-                            col_lower = col.lower()
-                            if any(keyword in col_lower for keyword in priority_keywords) or col in boxplot_cols:
-                                boxplot_cols.append(col)
-                                if len(boxplot_cols) >= 5:
-                                    break
-                        if not boxplot_cols and numeric_cols:
-                            boxplot_cols = numeric_cols[:5]
-                    
-                    if boxplot_cols:
-                        try:
-                            eda_analyzer.boxplot(listings, boxplot_cols)
-                            print(f"Generated boxplots for {len(boxplot_cols)} columns")
-                            print(f"Plots saved to: eda_plots/boxplot_*.png")
-                        except Exception as e:
-                            print(f"Boxplot error: {e}")
-                
-                # Get EDA summary
-                eda_summary = eda_analyzer.get_summary()
-                print("\n--- EDA Summary ---")
-                print(f"EDA analysis completed successfully")
-                print(f"Total analysis components: {len(eda_summary)}")
-                print(f"Output directory: {os.path.join(root_dir, 'eda_plots')}")
-                
             except Exception as e:
-                print(f"EDA analysis error: {e}")
+                print(f"Summary statistics error: {e}")
                 import traceback
                 traceback.print_exc()
+            
+            # ==========================================================
+            # 2. ANALIZA MULTIVARIANTE (MULTIVARIATE ANALYSIS)
+            # ==========================================================
+            print("\n--- 10.2: Multivariate Analysis ---")
+            try:
+                # Correlation Matrix
+                if len(numeric_cols) > 1:
+                    print("Computing correlation matrix...")
+                    # Limit columns for correlation matrix (too many columns can be slow)
+                    corr_cols = numeric_cols[:25] if len(numeric_cols) > 25 else numeric_cols
+                    
+                    correlation_matrix = eda.correlation_matrix(listings, columns=corr_cols, figsize=(14, 12))
+                    print(f"Correlation matrix computed for {len(corr_cols)} columns")
+                    
+                    # Find top correlations
+                    if correlation_matrix is not None and not correlation_matrix.empty:
+                        # Get upper triangle of correlation matrix
+                        mask = np.triu(np.ones_like(correlation_matrix, dtype=bool), k=1)
+                        corr_upper = correlation_matrix.where(mask)
+                        
+                        # Flatten and find top correlations
+                        corr_pairs = []
+                        for i in range(len(corr_upper.columns)):
+                            for j in range(i+1, len(corr_upper.columns)):
+                                val = corr_upper.iloc[i, j]
+                                if not pd.isna(val):
+                                    corr_pairs.append((corr_upper.columns[i], corr_upper.columns[j], val))
+                        
+                        if corr_pairs:
+                            corr_pairs.sort(key=lambda x: abs(x[2]), reverse=True)
+                            print("\nTop 10 strongest correlations:")
+                            for col1, col2, corr_val in corr_pairs[:10]:
+                                print(f"  {col1} <-> {col2}: {corr_val:.3f}")
+                        
+                        # Save correlation matrix to CSV
+                        corr_path = os.path.join(eda_output_dir, "correlation_matrix.csv")
+                        correlation_matrix.to_csv(corr_path)
+                        print(f"Correlation matrix saved to: {corr_path}")
+                else:
+                    print("Not enough numeric columns for correlation analysis")
+                
+                # PCA Analysis
+                if len(numeric_cols) > 2:
+                    print("\nPerforming PCA analysis...")
+                    # Select columns with sufficient variance for PCA
+                    pca_cols = []
+                    for col in numeric_cols[:30]:  # Limit to top 30 columns
+                        if listings[col].var() > 0 and not listings[col].isnull().all():
+                            pca_cols.append(col)
+                    
+                    if len(pca_cols) >= 2:
+                        # Use first 10 principal components for analysis
+                        n_components = min(10, len(pca_cols))
+                        pca_df, explained_var = eda.pca_analysis(listings, columns=pca_cols, n_components=n_components)
+                        
+                        print(f"PCA analysis completed with {n_components} components")
+                        print(f"Explained variance by component:")
+                        for i, var in enumerate(explained_var):
+                            print(f"  PC{i+1}: {var:.2%}")
+                        
+                        cumulative_var = np.cumsum(explained_var)
+                        print(f"\nCumulative explained variance:")
+                        for i, cum_var in enumerate(cumulative_var):
+                            print(f"  PC1-PC{i+1}: {cum_var:.2%}")
+                        
+                        # Plot PCA if we have at least 2 components
+                        if n_components >= 2:
+                            try:
+                                # Use price as labels if available
+                                labels = None
+                                if 'price' in listings.columns:
+                                    labels = listings['price'].values
+                                eda.plot_pca(pca_df.iloc[:, :2], labels=labels)
+                                print("PCA plot saved")
+                            except Exception as e:
+                                print(f"PCA plot error: {e}")
+                        
+                        # Save PCA components to CSV
+                        pca_path = os.path.join(eda_output_dir, "pca_components.csv")
+                        pca_df.to_csv(pca_path, index=False)
+                        print(f"PCA components saved to: {pca_path}")
+                    else:
+                        print("Not enough valid numeric columns for PCA (need at least 2)")
+                else:
+                    print("Not enough numeric columns for PCA analysis (need at least 2)")
+                
+                # Pairplot (sample data if too large)
+                if len(numeric_cols) >= 2:
+                    print("\nGenerating pairplot (sampled if dataset is large)...")
+                    try:
+                        # Select up to 5 key numeric columns for pairplot
+                        # Prioritize columns like price, ratings, counts
+                        pairplot_cols = []
+                        priority_keywords = ['price', 'rating', 'score', 'review', 'accommodates']
+                        
+                        for col in numeric_cols:
+                            col_lower = col.lower()
+                            if any(keyword in col_lower for keyword in priority_keywords):
+                                pairplot_cols.append(col)
+                                if len(pairplot_cols) >= 5:
+                                    break
+                        
+                        # If we don't have 5, add more from top variance columns
+                        if len(pairplot_cols) < 5:
+                            remaining = [col for col in numeric_cols[:10] if col not in pairplot_cols]
+                            pairplot_cols.extend(remaining[:5-len(pairplot_cols)])
+                        
+                        if len(pairplot_cols) >= 2:
+                            # Sample data if too large (pairplot is expensive)
+                            plot_data = listings[pairplot_cols].copy()
+                            if len(plot_data) > 1000:
+                                plot_data = plot_data.sample(n=1000, random_state=42)
+                                print(f"Sampled {len(plot_data)} rows for pairplot")
+                            
+                            # Remove any remaining nulls
+                            plot_data = plot_data.dropna()
+                            
+                            if len(plot_data) > 0 and len(pairplot_cols) >= 2:
+                                eda.pairplot(plot_data, columns=pairplot_cols)
+                                print(f"Pairplot generated for {len(pairplot_cols)} columns")
+                            else:
+                                print("Not enough valid data for pairplot")
+                        else:
+                            print("Not enough columns selected for pairplot")
+                    except Exception as e:
+                        print(f"Pairplot error: {e}")
+                        import traceback
+                        traceback.print_exc()
+                
+                # Grouped Summary
+                print("\nComputing grouped summaries...")
+                try:
+                    # Group by neighbourhood if available
+                    if 'neighbourhood_cleansed' in listings.columns and 'price' in listings.columns:
+                        grouped_summary = eda.grouped_summary(listings, 'neighbourhood_cleansed', 'price')
+                        print("\nPrice summary by neighbourhood (top 10):")
+                        print(grouped_summary.head(10).to_string())
+                        
+                        # Save grouped summary
+                        grouped_path = os.path.join(eda_output_dir, "grouped_summary_neighbourhood_price.csv")
+                        grouped_summary.to_csv(grouped_path)
+                        print(f"Grouped summary saved to: {grouped_path}")
+                    
+                    # Group by room type if available
+                    if 'room_type' in listings.columns and 'price' in listings.columns:
+                        grouped_summary = eda.grouped_summary(listings, 'room_type', 'price')
+                        print("\nPrice summary by room type:")
+                        print(grouped_summary.to_string())
+                except Exception as e:
+                    print(f"Grouped summary error: {e}")
+                    
+            except Exception as e:
+                print(f"Multivariate analysis error: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # Print EDA summary
+            print("\n--- EDA Summary ---")
+            eda_summary = eda.get_summary()
+            print(f"EDA analysis completed. Summary keys: {list(eda_summary.keys())}")
+            print(f"EDA plots saved to: {eda_output_dir}")
+            
         else:
             print("Skipping EDA: listings is None")
-        print(f"EDA analysis took {time.time() - start_time:.2f} seconds")
+        print(f"EDA took {time.time() - start_time:.2f} seconds")
 
-        # Step 10: Outlier Detection
+        # Step 11: Outlier Detection
         start_time = time.time()
-        print("\n=== STEP 10: OUTLIER DETECTION ===")
+        print("\n=== STEP 11: OUTLIER DETECTION ===")
         if listings is not None:
             print("Detecting outliers using multiple methods...")
             detector = OutlierDetector()
@@ -410,7 +479,7 @@ def main():
             print(f"Key columns: {', '.join(key_cols[:10])}{'...' if len(key_cols) > 10 else ''}")
             
             # 1. IQR Outliers
-            print("\n--- 10.1: IQR Outlier Detection ---")
+            print("\n--- 11.1: IQR Outlier Detection ---")
             try:
                 listings = detector.detect_iqr(listings, key_cols)
                 iqr_summary = {k: v for k, v in detector.get_summary().items() if k.startswith('iqr_')}
@@ -425,7 +494,7 @@ def main():
                 print(f"IQR detection error: {e}")
             
             # 2. Z-Score Outliers
-            print("\n--- 10.2: Z-Score Outlier Detection ---")
+            print("\n--- 11.2: Z-Score Outlier Detection ---")
             try:
                 listings = detector.detect_zscore(listings, key_cols, threshold=3)
                 zscore_summary = {k: v for k, v in detector.get_summary().items() if k.startswith('zscore_')}
@@ -440,7 +509,7 @@ def main():
                 print(f"Z-Score detection error: {e}")
             
             # 3. Isolation Forest
-            print("\n--- 10.3: Isolation Forest Outlier Detection ---")
+            print("\n--- 11.3: Isolation Forest Outlier Detection ---")
             try:
                 # Use all meaningful numeric columns for multivariate methods
                 feature_cols = meaningful_cols.copy()
@@ -458,7 +527,7 @@ def main():
                 print(f"Isolation Forest detection error: {e}")
             
             # 4. Local Outlier Factor (LOF)
-            print("\n--- 10.4: Local Outlier Factor (LOF) Detection ---")
+            print("\n--- 11.4: Local Outlier Factor (LOF) Detection ---")
             try:
                 listings = detector.detect_lof(listings, feature_cols, contamination=0.05)
                 lof_count = detector.get_summary().get('lof', 0)
@@ -467,7 +536,7 @@ def main():
                 print(f"LOF detection error: {e}")
             
             # 5. Mahalanobis Distance (if PCA components exist)
-            print("\n--- 10.5: Mahalanobis Distance Detection ---")
+            print("\n--- 11.5: Mahalanobis Distance Detection ---")
             try:
                 # Check if we have PCA components from advanced preprocessing
                 pca_cols = [col for col in listings.columns if 'pca' in col.lower() or col.startswith('PC')]
@@ -481,7 +550,7 @@ def main():
                 print(f"Mahalanobis detection error: {e}")
             
             # 6. Compute Combined Outlier Score
-            print("\n--- 10.6: Computing Combined Outlier Score ---")
+            print("\n--- 11.6: Computing Combined Outlier Score ---")
             try:
                 listings = detector.compute_outlier_score(listings)
                 
@@ -506,7 +575,7 @@ def main():
                 print(f"Outlier score computation error: {e}")
             
             # 7. Filter False Detections
-            print("\n--- 10.7: Filtering False Detections ---")
+            print("\n--- 11.7: Filtering False Detections ---")
             try:
                 # Validate outliers (require at least 2 methods to agree)
                 listings = detector.validate_outliers(listings, min_agreement=2, use_multivariate=True)
@@ -588,9 +657,9 @@ def main():
             print("Skipping outlier detection: listings is None")
         print(f"Outlier detection took {time.time() - start_time:.2f} seconds")
 
-        # Step 11: Save Processed Data (all integrated in one CSV)
+        # Step 12: Save Processed Data (all integrated in one CSV)
         start_time = time.time()
-        print("\n=== STEP 11: SAVE PROCESSED DATA ===")
+        print("\n=== STEP 12: SAVE PROCESSED DATA ===")
 
         if listings is not None:
             final_df = listings.copy()
