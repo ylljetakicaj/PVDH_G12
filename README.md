@@ -170,9 +170,9 @@ Provides a list of neighborhoods in Naples, useful for geographic filtering or m
 | `neighbourhood` | Name of the neighborhood | `Arenella`, `Avvocata` |
 
 ---
-The `main.py` script orchestrates the **entire data preprocessing, integration, cleaning, advanced feature engineering, exploratory data analysis, and outlier detection workflow**. It uses all other modules (`data_collection`, `data_quality`, `integration`, `cleaning`, `advanced_preprocessing`, `eda_analyzer`, `outlier_detection`) to produce a fully processed Airbnb dataset ready for analysis or modeling.
+# Main Pipeline: Airbnb Data Preprocessing and Advanced Analysis
 
-The `main.py` script orchestrates the **entire data preprocessing, integration, cleaning, advanced feature engineering, and outlier detection workflow**. It uses all other modules (`data_collection`, `data_quality`, `integration`, `cleaning`, `advanced_preprocessing`, `outlier_detection`) to produce a fully processed Airbnb dataset ready for analysis or modeling.
+The `main.py` script orchestrates the **entire data preprocessing, integration, cleaning, advanced feature engineering, exploratory data analysis, and outlier detection workflow**. It uses all other modules (`data_collection`, `data_quality`, `integration`, `cleaning`, `advanced_preprocessing`, `eda_analyzer`, `outlier_detection`) to produce a fully processed Airbnb dataset ready for analysis or modeling.
 
 ---
 
@@ -243,16 +243,22 @@ Uses the `AdvancedPreprocessor` class for:
 - Prints shapes and feature summaries at each step.
 
 ### 11. Exploratory Data Analysis (EDA)
-Uses the `EDAAnalyzer` class for comprehensive data exploration:
-- **Summary Statistics:** Numerical and categorical summaries
-- **Distribution Plots:** Histograms and KDE plots for numeric columns
-- **Boxplots:** Outlier visualization for numeric columns
-- **Correlation Analysis:** Correlation matrix and heatmap
-- **PCA Analysis:** Principal Component Analysis with explained variance
-- **Pairplots:** Pairwise relationships between key features
-- **Grouped Summaries:** Aggregated statistics by categories (e.g., neighbourhood, room type)
-- All plots are saved to the `eda_plots` directory
-- Summary statistics are saved as CSV files
+Uses the `EDAAnalyzer` class to perform comprehensive data exploration:
+- **Summary Statistics:** 
+  - Numerical summary (mean, median, std, skewness, kurtosis)
+  - Categorical summary (value counts per category)
+- **Multivariate Analysis:**
+  - Correlation matrix and heatmap visualization
+  - PCA analysis with explained variance ratios
+  - Pairplots for key numeric features
+  - Grouped summaries by neighbourhood and room type
+- **Visualizations:**
+  - Distribution plots with KDE
+  - Boxplots for outlier visualization
+  - Correlation heatmaps
+  - PCA component plots
+- Saves all plots to `eda_plots/` directory
+- Exports numerical summary and correlation matrix to CSV
 
 ### 12. Outlier Detection
 Uses the `OutlierDetector` class to identify and validate outliers using multiple methods:
@@ -266,8 +272,7 @@ Uses the `OutlierDetector` class to identify and validate outliers using multipl
 - **False Detection Filtering:** Filters out false positives and reports statistics
 - Prints detailed reports including false positive rate and method contributions.
 
-
-### 12. Save Processed Data
+### 13. Save Processed Data
 - Saves final processed listings to CSV with all outlier detection flags and scores.
 - Includes outlier flags, outlier_score, outlier_type, and validation results.
 - Prints final dataset shape, number of columns, and outlier detection summary.
@@ -284,8 +289,33 @@ Uses the `OutlierDetector` class to identify and validate outliers using multipl
 
 ## Example Output
 - `integrated_processed_listings.csv` – fully processed dataset with outlier detection flags
+- `eda_plots/` – directory containing all EDA visualizations
 - Summary of new features created during preprocessing is printed to console.
 - Outlier detection summary with false positive statistics is printed to console.
+
+## EDA Analyzer Features
+
+The pipeline includes comprehensive exploratory data analysis with the following capabilities:
+
+### Analysis Methods
+1. **Numerical Summary** - Descriptive statistics including skewness and kurtosis
+2. **Categorical Summary** - Value counts and frequency analysis
+3. **Correlation Matrix** - Pairwise correlations with heatmap visualization
+4. **PCA Analysis** - Principal component analysis with explained variance
+5. **Grouped Summary** - Aggregations by categorical variables
+
+### Visualizations Generated
+- `distribution_{column}.png` - Histogram with KDE for numeric columns
+- `boxplot_{column}.png` - Boxplot for outlier visualization
+- `correlation_heatmap.png` - Correlation matrix heatmap
+- `pca_plot.png` - PCA components scatter plot
+- `pairplot.png` - Pairwise relationships for key features
+
+### Output Files
+- `numerical_summary.csv` - Complete numerical statistics
+- `correlation_matrix.csv` - Full correlation matrix
+- `pca_components.csv` - PCA transformed data
+- `grouped_summary_neighbourhood_price.csv` - Price statistics by neighbourhood
 
 ## Outlier Detection Features
 
@@ -451,10 +481,97 @@ Filtered high-value listings (price ≥ $117)
 
 ---
 
+### Step 10: Exploratory Data Analysis (EDA)
+
+Performs comprehensive data exploration using the `EDAAnalyzer` class:
+
+#### 10.1 Summary Statistics
+- Computes numerical summary for up to 30 numeric columns
+- Computes categorical summary for up to 20 categorical columns
+- Includes mean, median, std, min, max, skewness, kurtosis
+
+#### 10.2 Multivariate Analysis
+- **Correlation Matrix:** Computes pairwise correlations for up to 25 numeric columns
+- **Top Correlations:** Identifies strongest positive and negative correlations
+- **PCA Analysis:** Reduces dimensionality and reports explained variance
+- **Pairplots:** Generates scatter matrix for key features (price, ratings, reviews)
+- **Grouped Summary:** Aggregates price by neighbourhood and room type
+
+**Output:**
+- Correlation heatmap saved to `eda_plots/correlation_heatmap.png`
+- PCA plot saved to `eda_plots/pca_plot.png`
+- Pairplot saved to `eda_plots/pairplot.png`
+- Numerical summary exported to `eda_plots/numerical_summary.csv`
+- Correlation matrix exported to `eda_plots/correlation_matrix.csv`
+
+---
+
+### Step 11: Outlier Detection
+
+Detects outliers using multiple methods and validates results:
+
+#### 11.1 IQR Outlier Detection
+- Detects outliers using Interquartile Range (Q1 - 1.5×IQR, Q3 + 1.5×IQR)
+- Applied to key columns (price, ratings, counts, etc.)
+
+#### 11.2 Z-Score Outlier Detection
+- Identifies outliers with |Z-score| > 3
+- Applied to key columns
+
+#### 11.3 Isolation Forest
+- Multivariate outlier detection using ensemble method
+- Contamination rate: 5%
+
+#### 11.4 Local Outlier Factor (LOF)
+- Density-based outlier detection
+- Contamination rate: 5%
+
+#### 11.5 Mahalanobis Distance
+- Distance-based detection using PCA components (if available)
+- Threshold: 3.5
+
+#### 11.6 Combined Outlier Score
+- Computes overall score by summing all outlier flags
+- Maps to types: normal (0), mild (1), strong (2), extreme (≥3)
+
+#### 11.7 False Detection Filtering
+- Validates outliers requiring agreement from ≥2 methods
+- Filters false positives
+- Reports false positive rate and method contributions
+
+**Output Example:**
+- Total detected outliers: 159
+- False positives filtered: 56 (35.2%)
+- Confirmed outliers: 103
+- Validation rate: 64.8%
+
+**Output:** (270, 225) with outlier detection columns
+
+---
+
+### Step 12: Save Processed Data
+Saves the **final dataset** to the processed dataset folder:
+
+- `integrated_processed_listings.csv` (270 rows, 252 columns)  
+
+**Output includes:**
+- All preprocessed features
+- Outlier detection flags (IQR, Z-Score, Isolation Forest, LOF, Mahalanobis)
+- `outlier_score` - Combined outlier score
+- `outlier_type` - Classification (normal, mild, strong, extreme)
+- `outlier_validated` - Validated outliers (≥2 methods agree)
+- `outlier_confirmed` - Confirmed outliers after filtering
+- `outlier_false_positive` - False positive flags
+
+**Output:** Ready-to-use CSV file for analysis or modeling with complete outlier information.
+
+---
+
 **Notes / Highlights**
 - Total columns after full preprocessing: **252** (includes 38 outlier detection columns)
 - Total rows after high-value filtering: **270**  
 - Advanced preprocessing pipeline completed successfully.
+- EDA generates visualizations and summary statistics for data understanding.
 - Outlier detection identifies and validates outliers using 5 different methods.
 - False positive filtering reduces noise by requiring agreement from multiple methods.
 - Merge warnings handled by filling missing values with defaults.
