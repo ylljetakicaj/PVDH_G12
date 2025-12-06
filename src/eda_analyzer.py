@@ -132,11 +132,11 @@ class EDAAnalyzer:
         self.summary[f"grouped_{target_col}_by_{group_col}"] = grouped
         return grouped
 
-    def list_saved_plots(self):
-    """Lists all plot files in the output directory."""
-    if not os.path.exists(self.output_dir):
-        return []
-    return [f for f in os.listdir(self.output_dir) if f.endswith(".png")]
+     def list_saved_plots(self):
+        """Lists all plot files in the output directory."""
+        if not os.path.exists(self.output_dir):
+            return []
+        return [f for f in os.listdir(self.output_dir) if f.endswith(".png")]
 
     # ==========================================================
     # Summary Getter
