@@ -210,57 +210,45 @@ def main():
             print("Skipping advanced preprocessing: listings is None")
         print(f"Advanced preprocessing took {time.time() - start_time:.2f} seconds")
 
-        # Step 10: Exploratory Data Analysis (EDA)
         start_time = time.time()
         print("\n=== STEP 10: EXPLORATORY DATA ANALYSIS (EDA) ===")
         if listings is not None:
-            # Create output directory for EDA plots
             eda_output_dir = os.path.join(root_dir, "eda_plots")
             os.makedirs(eda_output_dir, exist_ok=True)
             
             print("Performing exploratory data analysis...")
             eda = EDAAnalyzer(save_plots=True, output_dir=eda_output_dir)
             
-            # Get numeric and categorical columns
             numeric_cols = listings.select_dtypes(include=['float64', 'int64']).columns.tolist()
             categorical_cols = listings.select_dtypes(include=['object', 'category']).columns.tolist()
             
-            # Remove outlier flag columns from analysis
             numeric_cols = [col for col in numeric_cols if not col.startswith('outlier_')]
             
             print(f"Analyzing {len(numeric_cols)} numeric columns and {len(categorical_cols)} categorical columns")
             
-            # ==========================================================
-            # 1. STATISTIKA PËRMBLEDHËSE (SUMMARY STATISTICS)
-            # ==========================================================
+            # 1. STATISTIKA PËRMBLEDHËSE 
             print("\n--- 10.1: Summary Statistics ---")
             try:
-                # Numerical Summary
                 if len(numeric_cols) > 0:
                     print("Computing numerical summary statistics...")
-                    # Limit to top columns to avoid memory issues
                     analysis_numeric_cols = numeric_cols[:30] if len(numeric_cols) > 30 else numeric_cols
                     numerical_summary = eda.numerical_summary(listings, columns=analysis_numeric_cols)
                     print(f"Numerical summary computed for {len(analysis_numeric_cols)} columns")
                     print("\nTop 10 numeric columns summary:")
                     print(numerical_summary.head(10).to_string())
                     
-                    # Save summary to CSV
                     summary_path = os.path.join(eda_output_dir, "numerical_summary.csv")
                     numerical_summary.to_csv(summary_path)
                     print(f"Numerical summary saved to: {summary_path}")
                 else:
                     print("No numeric columns found for summary")
                 
-                # Categorical Summary
                 if len(categorical_cols) > 0:
                     print("\nComputing categorical summary statistics...")
-                    # Limit to reasonable number of categorical columns
                     analysis_cat_cols = categorical_cols[:20] if len(categorical_cols) > 20 else categorical_cols
                     categorical_summary = eda.categorical_summary(listings, columns=analysis_cat_cols)
                     print(f"Categorical summary computed for {len(analysis_cat_cols)} columns")
                     
-                    # Print summary for top 5 categorical columns
                     print("\nTop 5 categorical columns summary:")
                     for i, (col, counts) in enumerate(list(categorical_summary.items())[:5]):
                         print(f"\n{col}:")
@@ -273,27 +261,21 @@ def main():
                 import traceback
                 traceback.print_exc()
             
-            # ==========================================================
-            # 2. ANALIZA MULTIVARIANTE (MULTIVARIATE ANALYSIS)
-            # ==========================================================
+            # 2. ANALIZA MULTIVARIANTE
+
             print("\n--- 10.2: Multivariate Analysis ---")
             try:
-                # Correlation Matrix
                 if len(numeric_cols) > 1:
                     print("Computing correlation matrix...")
-                    # Limit columns for correlation matrix (too many columns can be slow)
                     corr_cols = numeric_cols[:25] if len(numeric_cols) > 25 else numeric_cols
                     
                     correlation_matrix = eda.correlation_matrix(listings, columns=corr_cols, figsize=(14, 12))
                     print(f"Correlation matrix computed for {len(corr_cols)} columns")
                     
-                    # Find top correlations
                     if correlation_matrix is not None and not correlation_matrix.empty:
-                        # Get upper triangle of correlation matrix
                         mask = np.triu(np.ones_like(correlation_matrix, dtype=bool), k=1)
                         corr_upper = correlation_matrix.where(mask)
                         
-                        # Flatten and find top correlations
                         corr_pairs = []
                         for i in range(len(corr_upper.columns)):
                             for j in range(i+1, len(corr_upper.columns)):
@@ -307,24 +289,20 @@ def main():
                             for col1, col2, corr_val in corr_pairs[:10]:
                                 print(f"  {col1} <-> {col2}: {corr_val:.3f}")
                         
-                        # Save correlation matrix to CSV
                         corr_path = os.path.join(eda_output_dir, "correlation_matrix.csv")
                         correlation_matrix.to_csv(corr_path)
                         print(f"Correlation matrix saved to: {corr_path}")
                 else:
                     print("Not enough numeric columns for correlation analysis")
                 
-                # PCA Analysis
                 if len(numeric_cols) > 2:
                     print("\nPerforming PCA analysis...")
-                    # Select columns with sufficient variance for PCA
                     pca_cols = []
-                    for col in numeric_cols[:30]:  # Limit to top 30 columns
+                    for col in numeric_cols[:30]: 
                         if listings[col].var() > 0 and not listings[col].isnull().all():
                             pca_cols.append(col)
                     
                     if len(pca_cols) >= 2:
-                        # Use first 10 principal components for analysis
                         n_components = min(10, len(pca_cols))
                         pca_df, explained_var = eda.pca_analysis(listings, columns=pca_cols, n_components=n_components)
                         
@@ -338,10 +316,8 @@ def main():
                         for i, cum_var in enumerate(cumulative_var):
                             print(f"  PC1-PC{i+1}: {cum_var:.2%}")
                         
-                        # Plot PCA if we have at least 2 components
                         if n_components >= 2:
                             try:
-                                # Use price as labels if available
                                 labels = None
                                 if 'price' in listings.columns:
                                     labels = listings['price'].values
@@ -350,7 +326,6 @@ def main():
                             except Exception as e:
                                 print(f"PCA plot error: {e}")
                         
-                        # Save PCA components to CSV
                         pca_path = os.path.join(eda_output_dir, "pca_components.csv")
                         pca_df.to_csv(pca_path, index=False)
                         print(f"PCA components saved to: {pca_path}")
@@ -359,12 +334,9 @@ def main():
                 else:
                     print("Not enough numeric columns for PCA analysis (need at least 2)")
                 
-                # Pairplot (sample data if too large)
                 if len(numeric_cols) >= 2:
                     print("\nGenerating pairplot (sampled if dataset is large)...")
                     try:
-                        # Select up to 5 key numeric columns for pairplot
-                        # Prioritize columns like price, ratings, counts
                         pairplot_cols = []
                         priority_keywords = ['price', 'rating', 'score', 'review', 'accommodates']
                         
@@ -375,19 +347,16 @@ def main():
                                 if len(pairplot_cols) >= 5:
                                     break
                         
-                        # If we don't have 5, add more from top variance columns
                         if len(pairplot_cols) < 5:
                             remaining = [col for col in numeric_cols[:10] if col not in pairplot_cols]
                             pairplot_cols.extend(remaining[:5-len(pairplot_cols)])
                         
                         if len(pairplot_cols) >= 2:
-                            # Sample data if too large (pairplot is expensive)
                             plot_data = listings[pairplot_cols].copy()
                             if len(plot_data) > 1000:
                                 plot_data = plot_data.sample(n=1000, random_state=42)
                                 print(f"Sampled {len(plot_data)} rows for pairplot")
                             
-                            # Remove any remaining nulls
                             plot_data = plot_data.dropna()
                             
                             if len(plot_data) > 0 and len(pairplot_cols) >= 2:
@@ -402,21 +371,17 @@ def main():
                         import traceback
                         traceback.print_exc()
                 
-                # Grouped Summary
                 print("\nComputing grouped summaries...")
                 try:
-                    # Group by neighbourhood if available
                     if 'neighbourhood_cleansed' in listings.columns and 'price' in listings.columns:
                         grouped_summary = eda.grouped_summary(listings, 'neighbourhood_cleansed', 'price')
                         print("\nPrice summary by neighbourhood (top 10):")
                         print(grouped_summary.head(10).to_string())
                         
-                        # Save grouped summary
                         grouped_path = os.path.join(eda_output_dir, "grouped_summary_neighbourhood_price.csv")
                         grouped_summary.to_csv(grouped_path)
                         print(f"Grouped summary saved to: {grouped_path}")
                     
-                    # Group by room type if available
                     if 'room_type' in listings.columns and 'price' in listings.columns:
                         grouped_summary = eda.grouped_summary(listings, 'room_type', 'price')
                         print("\nPrice summary by room type:")
@@ -429,7 +394,6 @@ def main():
                 import traceback
                 traceback.print_exc()
             
-            # Print EDA summary
             print("\n--- EDA Summary ---")
             eda_summary = eda.get_summary()
             print(f"EDA analysis completed. Summary keys: {list(eda_summary.keys())}")
@@ -439,26 +403,19 @@ def main():
             print("Skipping EDA: listings is None")
         print(f"EDA took {time.time() - start_time:.2f} seconds")
 
-        # Step 11: Outlier Detection
         start_time = time.time()
         print("\n=== STEP 11: OUTLIER DETECTION ===")
         if listings is not None:
             print("Detecting outliers using multiple methods...")
             detector = OutlierDetector()
             
-            # Identify numeric columns for outlier detection
             numeric_cols = listings.select_dtypes(include=['number']).columns.tolist()
             
-            # Remove columns that are not meaningful for outlier detection
-            # (like IDs, indices, or columns that are already binary flags)
+
             exclude_cols = ['id', 'host_id', 'scrape_id', 'listing_id', 'reviewer_id']
             meaningful_cols = [col for col in numeric_cols if col not in exclude_cols]
             
-            # Also exclude columns that are already outlier flags (if any)
             meaningful_cols = [col for col in meaningful_cols if not col.startswith('outlier_')]
-            
-            # Select key columns for IQR and Z-Score detection
-            # Focus on important features like price, ratings, counts, etc.
             key_cols = []
             priority_keywords = ['price', 'rating', 'score', 'review', 'accommodates', 
                                'bedroom', 'bathroom', 'availability', 'count']
@@ -467,18 +424,15 @@ def main():
                 col_lower = col.lower()
                 if any(keyword in col_lower for keyword in priority_keywords):
                     key_cols.append(col)
-            
-            # If we have too many columns, limit to top 15 most important ones
+
             if len(key_cols) > 15:
-                # Prioritize columns with more variation
                 key_cols_var = [(col, listings[col].var()) for col in key_cols if listings[col].var() > 0]
                 key_cols_var.sort(key=lambda x: x[1], reverse=True)
                 key_cols = [col for col, _ in key_cols_var[:15]]
             
             print(f"Using {len(key_cols)} key columns for IQR and Z-Score detection")
             print(f"Key columns: {', '.join(key_cols[:10])}{'...' if len(key_cols) > 10 else ''}")
-            
-            # 1. IQR Outliers
+
             print("\n--- 11.1: IQR Outlier Detection ---")
             try:
                 listings = detector.detect_iqr(listings, key_cols)
@@ -493,7 +447,6 @@ def main():
             except Exception as e:
                 print(f"IQR detection error: {e}")
             
-            # 2. Z-Score Outliers
             print("\n--- 11.2: Z-Score Outlier Detection ---")
             try:
                 listings = detector.detect_zscore(listings, key_cols, threshold=3)
@@ -508,14 +461,10 @@ def main():
             except Exception as e:
                 print(f"Z-Score detection error: {e}")
             
-            # 3. Isolation Forest
             print("\n--- 11.3: Isolation Forest Outlier Detection ---")
             try:
-                # Use all meaningful numeric columns for multivariate methods
                 feature_cols = meaningful_cols.copy()
-                # Limit to reasonable number of features for performance
                 if len(feature_cols) > 50:
-                    # Select features with highest variance
                     feature_vars = [(col, listings[col].var()) for col in feature_cols if listings[col].var() > 0]
                     feature_vars.sort(key=lambda x: x[1], reverse=True)
                     feature_cols = [col for col, _ in feature_vars[:50]]
@@ -526,7 +475,6 @@ def main():
             except Exception as e:
                 print(f"Isolation Forest detection error: {e}")
             
-            # 4. Local Outlier Factor (LOF)
             print("\n--- 11.4: Local Outlier Factor (LOF) Detection ---")
             try:
                 listings = detector.detect_lof(listings, feature_cols, contamination=0.05)
@@ -625,25 +573,6 @@ def main():
                 import traceback
                 traceback.print_exc()
             
-            # 8. Optional: Remove Outliers (commented out by default)
-            # Uncomment the following lines if you want to remove outliers from the dataset
-            # print("\n--- 10.8: Removing Confirmed Outliers (Optional) ---")
-            # try:
-            #     initial_count = len(listings)
-            #     listings = detector.remove_outliers(
-            #         listings, 
-            #         method='agreement', 
-            #         min_agreement=2,
-            #         remove_extreme_only=False,  # Set to True to only remove extreme outliers
-            #         keep_flags=True  # Keep outlier flags for analysis
-            #     )
-            #     removed_count = initial_count - len(listings)
-            #     print(f"Removed {removed_count} confirmed outliers from dataset")
-            #     print(f"Dataset shape: {initial_count} -> {len(listings)}")
-            # except Exception as e:
-            #     print(f"Outlier removal error: {e}")
-            
-            # Print final summary
             print("\n--- Outlier Detection Summary ---")
             final_summary = detector.get_summary()
             print(f"Total outlier detection methods executed: {len([k for k in final_summary.keys() if not k.startswith('iqr_') and not k.startswith('zscore_')])}")
@@ -657,31 +586,20 @@ def main():
             print("Skipping outlier detection: listings is None")
         print(f"Outlier detection took {time.time() - start_time:.2f} seconds")
 
-        # Step 12: Save Processed Data (all integrated in one CSV)
         start_time = time.time()
         print("\n=== STEP 12: SAVE PROCESSED DATA ===")
 
         if listings is not None:
             final_df = listings.copy()
 
-            # Merge PCA features if they exist
             if 'listings_pca' in locals() and not listings_pca.empty:
                 pca_cols = [c for c in listings_pca.columns if c not in final_df.columns]
                 final_df = pd.concat([final_df, listings_pca[pca_cols]], axis=1)
 
-            # Merge univariate-selected features if they exist
             if 'listings_selected' in locals() and not listings_selected.empty:
                 selected_cols = [c for c in listings_selected.columns if c not in final_df.columns]
                 final_df = pd.concat([final_df, listings_selected[selected_cols]], axis=1)
-
-            # Save integrated file
-            integrated_path = os.path.join(processed_dir, "integrated_processed_listings.csv")
-            final_df.to_csv(integrated_path, index=False)
-            print(f"All processed data saved in one CSV: {integrated_path}")
-            print(f"Final dataset shape: {final_df.shape}")
-            print(f"Final dataset columns: {len(final_df.columns)} total columns")
             
-            # Count outlier detection columns
             outlier_cols = [col for col in final_df.columns if col.startswith('outlier_')]
             if outlier_cols:
                 print(f"Outlier detection columns included: {len(outlier_cols)}")
@@ -689,6 +607,12 @@ def main():
                 print(f"  - Outlier score: {'outlier_score' in outlier_cols}")
                 print(f"  - Outlier type: {'outlier_type' in outlier_cols}")
 
+            integrated_path = os.path.join(processed_dir, "integrated_processed_listings.csv")
+            final_df.to_csv(integrated_path, index=False)
+            print(f"All processed data saved in one CSV: {integrated_path}")
+            print(f"Final dataset shape: {final_df.shape}")
+            print(f"Final dataset columns: {len(final_df.columns)} total columns")
+            
         else:
             print("Skipping save: listings is None")
 

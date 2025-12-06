@@ -16,19 +16,13 @@ class EDAAnalyzer:
         if save_plots:
             os.makedirs(output_dir, exist_ok=True)
 
-    # ------------------------------------------
-    # Helper to save plots
-    # ------------------------------------------
     def _save_plot(self, filename):
         path = os.path.join(self.output_dir, filename)
         plt.savefig(path, dpi=300, bbox_inches="tight")
         plt.close()
 
-    # ==========================================================
-    # ⭐⭐⭐  STATISTIKA PËRMBLEDHËSE – UNIVARIATE ANALYSIS ⭐⭐⭐
-    # ==========================================================
+    # STATISTIKA PËRMBLEDHËSE 
 
-    # 1. Numerical Summary
     def numerical_summary(self, df, columns=None):
         if columns is None:
             columns = df.select_dtypes(include=['float64', 'int64']).columns
@@ -41,7 +35,6 @@ class EDAAnalyzer:
         self.summary["numerical_summary"] = summary
         return summary
 
-    # 2. Categorical Summary
     def categorical_summary(self, df, columns=None):
         if columns is None:
             columns = df.select_dtypes(include=['object', 'category']).columns
@@ -50,7 +43,6 @@ class EDAAnalyzer:
         self.summary["categorical_summary"] = summary
         return summary
 
-    # 7. Distribution Plots
     def distribution_plots(self, df, columns):
         for col in columns:
             plt.figure(figsize=(7, 4))
@@ -59,7 +51,6 @@ class EDAAnalyzer:
 
             self._save_plot(f"distribution_{col}.png")
 
-    # 8. Boxplots
     def boxplot(self, df, columns):
         for col in columns:
             plt.figure(figsize=(7, 4))
@@ -68,11 +59,8 @@ class EDAAnalyzer:
 
             self._save_plot(f"boxplot_{col}.png")
 
-    # ==========================================================
-    # ⭐⭐⭐  ANALIZA MULTIVARIANTE – MULTIVARIATE ANALYSIS ⭐⭐⭐
-    # ==========================================================
+    # ANALIZA MULTIVARIANTE 
 
-    # 3. Correlation Matrix + Heatmap
     def correlation_matrix(self, df, columns=None, figsize=(12,10)):
         if columns is None:
             columns = df.select_dtypes(include=['float64', 'int64']).columns
@@ -88,14 +76,12 @@ class EDAAnalyzer:
         self.summary["correlation_matrix"] = corr
         return corr
 
-    # 4. Pairplot
     def pairplot(self, df, columns, hue=None):
         plot = sns.pairplot(df[columns], hue=hue)
         filename = os.path.join(self.output_dir, "pairplot.png")
         plot.savefig(filename, dpi=300)
         plt.close()
 
-    # 5. PCA Analysis
     def pca_analysis(self, df, columns, n_components=2):
         scaler = StandardScaler()
         X = scaler.fit_transform(df[columns].fillna(df[columns].mean()))
@@ -113,7 +99,6 @@ class EDAAnalyzer:
 
         return pca_df, explained_var
 
-    # 6. Plot PCA Components
     def plot_pca(self, pca_df, labels=None):
         plt.figure(figsize=(10, 7))
         plt.scatter(pca_df["PC1"], pca_df["PC2"], c=labels)
@@ -123,7 +108,6 @@ class EDAAnalyzer:
 
         self._save_plot("pca_plot.png")
 
-    # 9. Grouped Summary
     def grouped_summary(self, df, group_col, target_col):
         grouped = df.groupby(group_col)[target_col].agg(
             ["mean", "median", "std", "count"]
@@ -138,8 +122,5 @@ class EDAAnalyzer:
             return []
         return [f for f in os.listdir(self.output_dir) if f.endswith(".png")]
 
-    # ==========================================================
-    # Summary Getter
-    # ==========================================================
     def get_summary(self):
         return self.summary
