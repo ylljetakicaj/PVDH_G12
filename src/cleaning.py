@@ -10,7 +10,7 @@ def clean_data(df, dataset_name):
             df = df.drop_duplicates(subset=['id'])
             print(f"Removed {initial_rows - len(df)} duplicate IDs in listings")
         if 'price' in df.columns:
-            df['price'] = df['price'].replace('[\$,]', '', regex=True).astype(float, errors='ignore')
+            df['price'] = df['price'].replace(r'[\$,]', '', regex=True).astype(float, errors='ignore')
     elif dataset_name == "reviews":
         if 'id' in df.columns:
             initial_rows = len(df)
