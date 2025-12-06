@@ -44,7 +44,7 @@ def define_data_types(df, dataset_name):
             if 'host_id' in df.columns:
                 df['host_id'] = df['host_id'].astype(str)
             if 'price' in df.columns:
-                df['price'] = df['price'].replace('[\$,]', '', regex=True)
+                df['price'] = df['price'].replace(r'[\$,]', '', regex=True)
                 df['price'] = pd.to_numeric(df['price'], errors='coerce')
             for col in ['host_response_rate', 'host_acceptance_rate']:
                 if col in df.columns:
