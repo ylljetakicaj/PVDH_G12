@@ -43,7 +43,7 @@ This project focuses on analyzing and visualizing Airbnb listings data for Naple
 
 ```bash
 git clone https://github.com/ylljetakicaj/PVDH_G12.git
-cd PVDH-Project
+cd PVDH_G12
 ```
 2. **Create and activate a virtual environment**
 ```bash
@@ -58,7 +58,7 @@ source venv/bin/activate
 ``` 
 3. **Install required packages**
 ```bash
-pip install -r requirements.txt
+pip install -r src/requirements.txt
 ``` 
 4. **Run the main pipeline**
 ```bash
@@ -170,7 +170,7 @@ Provides a list of neighborhoods in Naples, useful for geographic filtering or m
 | `neighbourhood` | Name of the neighborhood | `Arenella`, `Avvocata` |
 
 ---
-# Main Pipeline: Airbnb Data Preprocessing and Advanced Analysis
+The `main.py` script orchestrates the **entire data preprocessing, integration, cleaning, advanced feature engineering, exploratory data analysis, and outlier detection workflow**. It uses all other modules (`data_collection`, `data_quality`, `integration`, `cleaning`, `advanced_preprocessing`, `eda_analyzer`, `outlier_detection`) to produce a fully processed Airbnb dataset ready for analysis or modeling.
 
 The `main.py` script orchestrates the **entire data preprocessing, integration, cleaning, advanced feature engineering, and outlier detection workflow**. It uses all other modules (`data_collection`, `data_quality`, `integration`, `cleaning`, `advanced_preprocessing`, `outlier_detection`) to produce a fully processed Airbnb dataset ready for analysis or modeling.
 
@@ -242,7 +242,19 @@ Uses the `AdvancedPreprocessor` class for:
   - Univariate feature selection for top features
 - Prints shapes and feature summaries at each step.
 
-### 11. Outlier Detection
+### 11. Exploratory Data Analysis (EDA)
+Uses the `EDAAnalyzer` class for comprehensive data exploration:
+- **Summary Statistics:** Numerical and categorical summaries
+- **Distribution Plots:** Histograms and KDE plots for numeric columns
+- **Boxplots:** Outlier visualization for numeric columns
+- **Correlation Analysis:** Correlation matrix and heatmap
+- **PCA Analysis:** Principal Component Analysis with explained variance
+- **Pairplots:** Pairwise relationships between key features
+- **Grouped Summaries:** Aggregated statistics by categories (e.g., neighbourhood, room type)
+- All plots are saved to the `eda_plots` directory
+- Summary statistics are saved as CSV files
+
+### 12. Outlier Detection
 Uses the `OutlierDetector` class to identify and validate outliers using multiple methods:
 - **IQR Outliers:** Detects outliers using Interquartile Range method for key columns
 - **Z-Score Outliers:** Identifies outliers based on Z-score threshold (default: 3)
@@ -253,6 +265,7 @@ Uses the `OutlierDetector` class to identify and validate outliers using multipl
 - **Outlier Validation:** Validates outliers by requiring agreement from ≥2 methods
 - **False Detection Filtering:** Filters out false positives and reports statistics
 - Prints detailed reports including false positive rate and method contributions.
+
 
 ### 12. Save Processed Data
 - Saves final processed listings to CSV with all outlier detection flags and scores.
@@ -435,67 +448,6 @@ Filtered high-value listings (price ≥ $117)
 - Original dataset: 1,068 rows, 83 columns  
 - Processed dataset: 270 rows, 182 columns  
 - Features added: 99  
-
----
-
-### Step 10: Outlier Detection
-
-Detects outliers using multiple methods and validates results:
-
-#### 10.1 IQR Outlier Detection
-- Detects outliers using Interquartile Range (Q1 - 1.5×IQR, Q3 + 1.5×IQR)
-- Applied to key columns (price, ratings, counts, etc.)
-
-#### 10.2 Z-Score Outlier Detection
-- Identifies outliers with |Z-score| > 3
-- Applied to key columns
-
-#### 10.3 Isolation Forest
-- Multivariate outlier detection using ensemble method
-- Contamination rate: 5%
-
-#### 10.4 Local Outlier Factor (LOF)
-- Density-based outlier detection
-- Contamination rate: 5%
-
-#### 10.5 Mahalanobis Distance
-- Distance-based detection using PCA components (if available)
-- Threshold: 3.5
-
-#### 10.6 Combined Outlier Score
-- Computes overall score by summing all outlier flags
-- Maps to types: normal (0), mild (1), strong (2), extreme (≥3)
-
-#### 10.7 False Detection Filtering
-- Validates outliers requiring agreement from ≥2 methods
-- Filters false positives
-- Reports false positive rate and method contributions
-
-**Output Example:**
-- Total detected outliers: 159
-- False positives filtered: 56 (35.2%)
-- Confirmed outliers: 103
-- Validation rate: 64.8%
-
-**Output:** (270, 225) with outlier detection columns
-
----
-
-### Step 11: Save Processed Data
-Saves the **final dataset** to the processed dataset folder:
-
-- `integrated_processed_listings.csv` (270 rows, 252 columns)  
-
-**Output includes:**
-- All preprocessed features
-- Outlier detection flags (IQR, Z-Score, Isolation Forest, LOF, Mahalanobis)
-- `outlier_score` - Combined outlier score
-- `outlier_type` - Classification (normal, mild, strong, extreme)
-- `outlier_validated` - Validated outliers (≥2 methods agree)
-- `outlier_confirmed` - Confirmed outliers after filtering
-- `outlier_false_positive` - False positive flags
-
-**Output:** Ready-to-use CSV file for analysis or modeling with complete outlier information.
 
 ---
 
