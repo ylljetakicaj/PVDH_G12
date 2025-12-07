@@ -21,8 +21,7 @@ class EDAAnalyzer:
         plt.savefig(path, dpi=300, bbox_inches="tight")
         plt.close()
 
-    # STATISTIKA PËRMBLEDHËSE 
-
+    # Statistika permbledhese
     def numerical_summary(self, df, columns=None):
         if columns is None:
             columns = df.select_dtypes(include=['float64', 'int64']).columns
@@ -59,7 +58,7 @@ class EDAAnalyzer:
 
             self._save_plot(f"boxplot_{col}.png")
 
-    # ANALIZA MULTIVARIANTE 
+    # Analiza multivariante
 
     def correlation_matrix(self, df, columns=None, figsize=(12,10)):
         if columns is None:
@@ -117,10 +116,12 @@ class EDAAnalyzer:
         return grouped
 
     def list_saved_plots(self):
-        """Lists all plot files in the output directory."""
         if not os.path.exists(self.output_dir):
             return []
         return [f for f in os.listdir(self.output_dir) if f.endswith(".png")]
-
+        
+    def __repr__(self):
+        return f"EDAAnalyzer(save_plots={self.save_plots}, output_dir='{self.output_dir}')"
+        
     def get_summary(self):
         return self.summary
