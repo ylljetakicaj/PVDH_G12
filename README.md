@@ -567,11 +567,3 @@ Saves the **final dataset** to the processed dataset folder:
 
 ---
 
-**Notes / Highlights**
-- Total columns after full preprocessing: **252** (includes 38 outlier detection columns)
-- Total rows after high-value filtering: **270**  
-- Advanced preprocessing pipeline completed successfully.
-- EDA generates visualizations and summary statistics for data understanding.
-- Outlier detection identifies and validates outliers using 5 different methods.
-- False positive filtering reduces noise by requiring agreement from multiple methods.
-- Merge warnings handled by filling missing values with defaults.
