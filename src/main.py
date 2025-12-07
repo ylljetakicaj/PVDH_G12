@@ -255,6 +255,18 @@ def main():
                         print(counts.head(10).to_string())
                 else:
                     print("No categorical columns found for summary")
+
+                print("\nGenerating distribution and boxplots for numeric columns...")
+                plot_numeric_cols = analysis_numeric_cols[:5]
+                if len(plot_numeric_cols) > 0:
+                   
+                    eda.distribution_plots(listings, plot_numeric_cols)
+                    print(f"Distribution plots generated for: {plot_numeric_cols}")
+
+                    eda.boxplot(listings, plot_numeric_cols)
+                    print(f"Boxplots generated for: {plot_numeric_cols}")
+                else:
+                    print("No columns found for summary")
                     
             except Exception as e:
                 print(f"Summary statistics error: {e}")
@@ -483,10 +495,8 @@ def main():
             except Exception as e:
                 print(f"LOF detection error: {e}")
             
-            # 5. Mahalanobis Distance (if PCA components exist)
             print("\n--- 11.5: Mahalanobis Distance Detection ---")
             try:
-                # Check if we have PCA components from advanced preprocessing
                 pca_cols = [col for col in listings.columns if 'pca' in col.lower() or col.startswith('PC')]
                 if len(pca_cols) >= 2:
                     listings = detector.detect_mahalanobis(listings, pca_cols, threshold=3.5)
@@ -497,45 +507,36 @@ def main():
             except Exception as e:
                 print(f"Mahalanobis detection error: {e}")
             
-            # 6. Compute Combined Outlier Score
             print("\n--- 11.6: Computing Combined Outlier Score ---")
             try:
                 listings = detector.compute_outlier_score(listings)
                 
-                # Map outlier types
                 if 'outlier_score' in listings.columns:
                     listings['outlier_type'] = listings['outlier_score'].apply(detector.map_outlier_type)
                     
-                    # Print summary
                     outlier_type_counts = listings['outlier_type'].value_counts()
                     print("Outlier type distribution:")
                     for outlier_type, count in outlier_type_counts.items():
                         print(f"  {outlier_type}: {count} ({count/len(listings)*100:.1f}%)")
                     
-                    # Count total outliers (score > 0)
                     total_outliers = (listings['outlier_score'] > 0).sum()
                     print(f"\nTotal records with at least one outlier flag: {total_outliers} ({total_outliers/len(listings)*100:.1f}%)")
                     
-                    # Count extreme outliers (score >= 3)
                     extreme_outliers = (listings['outlier_score'] >= 3).sum()
                     print(f"Extreme outliers (score >= 3): {extreme_outliers} ({extreme_outliers/len(listings)*100:.1f}%)")
             except Exception as e:
                 print(f"Outlier score computation error: {e}")
             
-            # 7. Filter False Detections
             print("\n--- 11.7: Filtering False Detections ---")
             try:
-                # Validate outliers (require at least 2 methods to agree)
                 listings = detector.validate_outliers(listings, min_agreement=2, use_multivariate=True)
                 
-                # Filter false detections using agreement method
                 listings = detector.filter_false_detections(
                     listings, 
                     method='agreement', 
                     min_agreement=2
                 )
                 
-                # Get false detection report
                 false_detection_report = detector.get_false_detection_report(listings)
                 
                 if false_detection_report:
@@ -549,7 +550,6 @@ def main():
                         print(f"  Confirmed outliers: {false_detection_report['confirmed_outliers']}")
                         print(f"  Filtered out: {false_detection_report.get('filtered_out', 0)}")
                     
-                    # Show which methods contributed to false positives
                     if "method_contributions" in false_detection_report and false_detection_report["method_contributions"]:
                         print("\n  Method contributions to false positives:")
                         for method, count in sorted(false_detection_report["method_contributions"].items(), 
@@ -557,7 +557,6 @@ def main():
                             method_name = method.replace("outlier_", "").replace("iqr_", "IQR-").replace("zscore_", "Z-Score-")
                             print(f"    {method_name}: {count}")
                 
-                # Show validation statistics
                 if "outlier_validated" in listings.columns:
                     validated_count = listings["outlier_validated"].sum()
                     total_with_flags = (listings.get("outlier_score", pd.Series([0] * len(listings))) > 0).sum()
