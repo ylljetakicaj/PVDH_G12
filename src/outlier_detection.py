@@ -106,18 +106,6 @@ class OutlierDetector:
             return "extreme"
 
     def validate_outliers(self, df, min_agreement=2, use_multivariate=True):
-        """
-        Validate outliers by requiring agreement from multiple methods.
-        This helps remove false positives.
-        
-        Args:
-            df: DataFrame with outlier flags
-            min_agreement: Minimum number of methods that must agree (default: 2)
-            use_multivariate: Whether to include multivariate methods in validation
-        
-        Returns:
-            DataFrame with validated outlier flags
-        """
         outlier_flags = [c for c in df.columns if c.startswith("outlier_") 
                         and not c.endswith("_score") and c != "outlier_type"]
         
@@ -150,19 +138,6 @@ class OutlierDetector:
     
     def filter_false_detections(self, df, method='agreement', min_agreement=2, 
                                 confidence_threshold=0.5, use_score=True):
-        """
-        Filter out false detections using various strategies.
-        
-        Args:
-            df: DataFrame with outlier flags
-            method: 'agreement' (require multiple methods) or 'confidence' (use score threshold)
-            min_agreement: Minimum methods that must agree (for 'agreement' method)
-            confidence_threshold: Minimum score threshold (for 'confidence' method)
-            use_score: Whether to use outlier_score for confidence
-        
-        Returns:
-            DataFrame with filtered outlier flags
-        """
         if method == 'agreement':
             df = self.validate_outliers(df, min_agreement=min_agreement)
             
@@ -199,19 +174,6 @@ class OutlierDetector:
     
     def remove_outliers(self, df, method='agreement', min_agreement=2, 
                        remove_extreme_only=False, keep_flags=True):
-        """
-        Remove outliers from the dataset.
-        
-        Args:
-            df: DataFrame with outlier flags
-            method: 'agreement' or 'confidence'
-            min_agreement: Minimum methods that must agree
-            remove_extreme_only: If True, only remove extreme outliers (score >= 3)
-            keep_flags: If True, keep outlier flag columns in the result
-        
-        Returns:
-            DataFrame with outliers removed
-        """
         original_count = len(df)
         
         df = self.filter_false_detections(df, method=method, min_agreement=min_agreement)
@@ -239,15 +201,6 @@ class OutlierDetector:
         return df_cleaned
     
     def get_false_detection_report(self, df):
-        """
-        Generate a report on false detections.
-        
-        Args:
-            df: DataFrame with outlier flags and validation results
-        
-        Returns:
-            Dictionary with false detection statistics
-        """
         report = {}
         
         if "outlier_false_positive" in df.columns:
@@ -278,14 +231,6 @@ class OutlierDetector:
         return report
         
     def detect_rare_categories(self, df, column, min_freq=0.01):
-        """
-        Flag rare categories in a categorical column.
-
-        Args:
-            df: DataFrame
-            column: categorical column name
-            min_freq: minimum frequency threshold (default 1%)
-        """
         if column not in df:
             return df
 
